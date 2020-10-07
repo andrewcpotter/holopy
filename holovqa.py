@@ -13,6 +13,8 @@ import numpy as np
 import cirq
 import sympy 
 
+import mps
+
 #%% 
 class IsoTensor(object):
     """
@@ -53,7 +55,7 @@ class IsoTensor(object):
         calls circuit simulator to construct unitary
         returns in shape specified by regdims
         inputs:
-            - params, list or np.array of floats, circuit parameters
+            - params, dictionary of {'parameter_names':numerical_values}
         """
         if self.circuit_format == 'cirq':            
             u = self.unitary_cirq(params)
@@ -63,10 +65,9 @@ class IsoTensor(object):
     
     def unitary_cirq(self,params):
         """ unitary constructor for cirq-based circuits """
-        param_dict = dict(zip(self.param_names,params)) # create dictionary of parameters
         qubit_order = [q for qreg in self.qubits for q in qreg] # order to return the qubit unitary
         # resolve the symbolic circuit parameters to numerical values
-        resolver = cirq.ParamResolver(param_dict)
+        resolver = cirq.ParamResolver(params)
         resolved_circuit = cirq.resolve_parameters(self.circuit, resolver)   
         u = resolved_circuit.unitary(qubit_order = qubit_order)
         return u.reshape(self.tensor_shape) # reshape as a multi-leg tensor
@@ -100,28 +101,51 @@ class HoloMPS(object):
 
             # make the MPS/tensor-train -- same qubits used by each tensor
             self.bdry_tensor = IsoTensor(qubits,self.n_params) # tensor for left boundary vector
-            self.tensors = [IsoTensor(qubits,self.n_params) for j in range(l_uc)]
+            self.sites = [IsoTensor(qubits,self.n_params) for j in range(l_uc)]
 
         else:
             raise NotImplementedError('Only cirq implemented')
     
-    ## cpu simulation ##    
-    def compute_unitaries(self,params):
+    ## cpu simulation ##  
+    def compute_left_bdry_vector(self,params):
         """
+        computes full unitaries for each state (any initial state for physicalqubit)
         inputs:
-            params, nested list of circuit parameter values
+            params, dictionary of parameters {'name':numerical-value}
         returns:
             bdry_vec, unitary correspond to boundary
             ulist, list of unitaries for tensors in unit cell
         """
-        self.bvec_l = self.bdry_tensor.unitary(params)[0,:,0,0] # boundary circuit tensor 
-        self.ulist = [self.tensors[j].unitary(params)[:,:,0,:] for j in range(len(self.tensors))]
-        return self.bvec_l, self.ulist
+        bvec_l = self.bdry_tensor.unitary(params)[0,:,0,0] # boundary circuit tensor 
+        return bvec_l
+    
+    def compute_unitaries(self,params):
+        """
+        computes full unitaries for each state (any initial state for physicalqubit)
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+        returns:
+            ulist, list of rank-4 tensors for each site in unit cell
+        """
+        ulist = [self.sites[j].unitary(params) for j in range(self.l_uc)]
+        return ulist
+    
+    def compute_tensors(self,params):
+        """
+        computes tensors for fixed initial state of physical qubit = |0>
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+        returns:
+            tensors, list of rank-3 tensors for each site in unit cell
+        """
+        tensors = [self.sites[j].unitary(params)[:,:,0,:] for j in range(len(self.tensors))]
+        return tensors
     
     ## Convert to other format(s) ##
-    def to_tenpy(self,infinite=False):
+    def to_tenpy(self,params,infinite=False):
         """
         inputs:
+            params, dictionary of parameters {'name':numerical-value}
             infinite, bool (default=false), whether to export to iMPS
             TODO: add any other args needed to specify, symmetries, site-type etc...
         outputs:
@@ -129,12 +153,32 @@ class HoloMPS(object):
         """
         raise NotImplementedError
         
-    def to_mps(self,infinite=False):
+    def to_mps(self,params):
         """
-        
+        converts to custom MPS class object
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+        outputs:
+            custom MPS object created from cirq description
         """
-        raise NotImplementedError
+        tensors = self.compute_tensors(params)
+        bvecl = self.compute_compute_left_bdry_vector
+        state = mps.MPS(tensors,L=self.L,bdry_vecs=[bvecl,None], rcf = True)
+        return state
     
+    def to_mpo(self,params):
+        """
+        converts to custom MPO class object
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+        outputs:
+            custom MPS object created from cirq description
+        """
+        tensors = self.compute_unitaries(params)
+        bvecl = self.compute_compute_left_bdry_vector
+        op = mps.MPO(tensors,L=self.L,bdry_vecs=[bvecl,None], rcf = True)
+        return op
+        
     ##  correlation function sampling ##
     def sample_correlations(self,options:dict):
         """
@@ -159,12 +203,12 @@ class HoloMPS(object):
       
 
 #%%
-class HoloThermalMPDO(HoloMPS):
-    """
-    Object for: Holographic MPO generated by variational/parameterized circuit 
-    
-    TODO: add capability to 
-    """
+#class HoloThermalMPDO(HoloMPS):
+#    """
+#    Object for: Holographic MPO generated by variational/parameterized circuit 
+#    
+#    TODO: add capability to 
+#    """
 
 #%% test/debug
 nphys = 1
