@@ -14,7 +14,7 @@ import cirq
 import sympy 
 
 import mps
-
+import tenpy
 #%% 
 class IsoTensor(object):
     """
@@ -156,7 +156,19 @@ class HoloMPS(object):
         outputs:
             tenpy MPS object created from cirq description
         """
-        raise NotImplementedError
+        if (L==np.inf) and (self.l_uc==1) and (self.nphys==1):
+            site = tenpy.networks.site.SpinHalfSite(conserve=None)
+            B = np.swapaxes(self.tensors(params)[0],1,2)
+            psi = tenpy.networks.mps.MPS.from_Bflat([site], 
+                                                [B], 
+                                                bc='infinite', 
+                                                dtype=complex, 
+                                                form=None)
+            psi.canonical_form()
+            psi.convert_form(psi.form)
+            return psi
+        else:
+            raise NotImplementedError
         
     def as_mps(self,params,L=1):
         """
