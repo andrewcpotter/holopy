@@ -11,7 +11,7 @@ Created on Mon Oct  5 09:58:45 2020
 #%% imports
 import numpy as np
 import cirq
-import sympy 
+#import sympy 
 
 import mps
 import tenpy
@@ -24,7 +24,7 @@ class IsoTensor(object):
         
         Intention: circuit object intended to be easily adaptable to work equally with cirq, qiskit, etc...
     """
-    def __init__(self,qubits,param_names,circuit_format = 'cirq'):
+    def __init__(self,qubits,param_names,circuit=None,circuit_format = 'cirq'):
         """
         creates isometric tensor site for list of bond-register sizes
         intputs:
@@ -34,6 +34,7 @@ class IsoTensor(object):
                     0th leg denotes the physical leg, 
                     j>1 entries are (incoming) bond-legs
             param_names, list of circuit-parameter names as strings
+            circuit, circuit object (type specified by circuit_format)
             circuit_format, optional (default = 'cirq'), specifies which circuit 
                 construction package to use for circuits
         """
@@ -46,7 +47,10 @@ class IsoTensor(object):
         
         if circuit_format == 'cirq':
             ## setup circuit(s) ##
-            self.circuit  = cirq.Circuit()
+            if circuit==None:
+                self.circuit  = cirq.Circuit()
+            else:
+                self.cicruit = circuit
         else:
             raise NotImplementedError('Only cirq implemented')
 
@@ -80,18 +84,21 @@ class HoloMPS(object):
     """
     
     
-    def __init__(self,phys_qubits, bond_qubits, param_names,l_uc=1,circuit_format = 'cirq'):
+    def __init__(self,phys_qubits, bond_qubits,circuits,param_names,bdry_circ=None,circuit_format = 'cirq'):
         """
         inputs:
             phys_qubits, register of physical qubits, 
             bond_qubits, register of bond qubits,
                 (for cirq: register= list of named qubits)
             l_uc, int, number of sites in unit cell
+            circuits, list, of circuits for each site in unit-cell
             param_names,list of sympy symbols, parameterized gate parameters (shared by all tensors)
+            bdry_circ, (optional, default = None), boundary vector circuit for prepping initial state of bond-qubits
             circuit_format, str, (default='cirq'), type of circuit editor/simulator used
         """
 
-        self.l_uc = l_uc # length of unit cell
+        self.l_uc = len(circuits) # length of unit cell
+        self.circuits=circuits
         self.param_names = param_names # list of sympy symbols (shared by all tensors)
         self.n_params = len(param_names)
         
@@ -103,8 +110,8 @@ class HoloMPS(object):
             self.qubits = [self.qp,self.qb]
 
             # make the MPS/tensor-train -- same qubits used by each tensor
-            self.bdry_tensor = IsoTensor([self.qb],self.param_names) # tensor for left boundary vector
-            self.sites = [IsoTensor(self.qubits,self.param_names) for j in range(l_uc)]
+            self.bdry_tensor = IsoTensor([self.qb],self.param_names,bdry_circ) # tensor for left boundary vector
+            self.sites = [IsoTensor(self.qubits,self.param_names,self.circuits[j]) for j in range(self.l_uc)]
 
         else:
             raise NotImplementedError('Only cirq implemented')

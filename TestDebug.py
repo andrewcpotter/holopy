@@ -26,10 +26,10 @@ vpsym = [sympy.Symbol('x'+str(j)) for j in range(n_var_params)] # list of symbol
 qp = [cirq.NamedQubit('p'+str(j)) for j in range(nphys)] # physical qubits
 qb = [cirq.NamedQubit('b'+str(j)) for j in range(nbond)] # bond qubits
 qubits = [qp,qb]
-psi = holopy.HoloMPS(qp,qb,vpsym)
 
 # construct cirq circuit with symbolic parameters
-c=psi.sites[0].circuit
+c=cirq.Circuit()
+#psi.sites[0].circuit
 c.append([cirq.H(qp[0]), # arbitrary SU(4) circuit using Cartan decomposition
           # 1q on p qubit
           cirq.rx(vpsym[0])(qp[0]),
@@ -53,13 +53,14 @@ c.append([cirq.H(qp[0]), # arbitrary SU(4) circuit using Cartan decomposition
           cirq.rx(vpsym[14])(qb[0]),
           ])
 
-# resolve parameters and evaluate unitaries
+#%% setup HoloMPS object
 vpvals = 0.5*np.ones(n_var_params) # capriciously chosen parameter values
-#params = dict(zip(vpsym,vpvals))
+psi = holopy.HoloMPS(qp,qb,[c],vpsym)
+psi.sites[0].circuit = c
 tensors = psi.tensors(vpvals)
 
 # convert to custom mps
-psi_mps = psi.as_mps(vpvals)
+psi_mps = psi.as_mps(vpvals,L=10)
 print('<psi|psi>={}'.format(psi_mps.expect()))
 
 #%% Setup MPO from TenPY model
