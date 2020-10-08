@@ -24,7 +24,7 @@ class IsoTensor(object):
         
         Intention: circuit object intended to be easily adaptable to work equally with cirq, qiskit, etc...
     """
-    def __init__(self,qubits,n_params,circuit_format = 'cirq'):
+    def __init__(self,qubits,param_names,circuit_format = 'cirq'):
         """
         creates isometric tensor site for list of bond-register sizes
         intputs:
@@ -33,11 +33,12 @@ class IsoTensor(object):
                     number of outgoing legs is automatically the same as incoming ones
                     0th leg denotes the physical leg, 
                     j>1 entries are (incoming) bond-legs
-            n_params, int, number of parameters in circuit
+            param_names, list of circuit-parameter names as strings
             circuit_format, optional (default = 'cirq'), specifies which circuit 
                 construction package to use for circuits
         """
-        self.n_params = n_params
+        self.param_names = param_names
+        self.n_params = len(param_names)
         self.circuit_format = circuit_format
         self.regdims = [len(reg) for reg in qubits]
         self.qubits = qubits
@@ -45,7 +46,6 @@ class IsoTensor(object):
         
         if circuit_format == 'cirq':
             ## setup circuit(s) ##
-            self.param_names = [sympy.Symbol('x'+str(j)) for j in range(n_params)]
             self.circuit  = cirq.Circuit()
         else:
             raise NotImplementedError('Only cirq implemented')
@@ -55,7 +55,7 @@ class IsoTensor(object):
         calls circuit simulator to construct unitary
         returns in shape specified by regdims
         inputs:
-            - params, dictionary of {'parameter_names':numerical_values}
+            - params, pp.array of parameter values
         """
         if self.circuit_format == 'cirq':            
             u = self.unitary_cirq(params)
@@ -65,9 +65,10 @@ class IsoTensor(object):
     
     def unitary_cirq(self,params):
         """ unitary constructor for cirq-based circuits """
+        param_dict = dict(zip(self.param_names,params))
         qubit_order = [q for qreg in self.qubits for q in qreg] # order to return the qubit unitary
         # resolve the symbolic circuit parameters to numerical values
-        resolver = cirq.ParamResolver(params)
+        resolver = cirq.ParamResolver(param_dict)
         resolved_circuit = cirq.resolve_parameters(self.circuit, resolver)   
         u = resolved_circuit.unitary(qubit_order = qubit_order)
         return u.reshape(self.tensor_shape) # reshape as a multi-leg tensor
@@ -102,8 +103,8 @@ class HoloMPS(object):
             self.qubits = [self.qp,self.qb]
 
             # make the MPS/tensor-train -- same qubits used by each tensor
-            self.bdry_tensor = IsoTensor([self.qb],self.n_params) # tensor for left boundary vector
-            self.sites = [IsoTensor(self.qubits,self.n_params) for j in range(l_uc)]
+            self.bdry_tensor = IsoTensor([self.qb],self.param_names) # tensor for left boundary vector
+            self.sites = [IsoTensor(self.qubits,self.param_names) for j in range(l_uc)]
 
         else:
             raise NotImplementedError('Only cirq implemented')

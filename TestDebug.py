@@ -55,11 +55,11 @@ c.append([cirq.H(qp[0]), # arbitrary SU(4) circuit using Cartan decomposition
 
 # resolve parameters and evaluate unitaries
 vpvals = 0.5*np.ones(n_var_params) # capriciously chosen parameter values
-params = dict(zip(vpsym,vpvals))
-tensors = psi.tensors(params)
+#params = dict(zip(vpsym,vpvals))
+tensors = psi.tensors(vpvals)
 
 # convert to custom mps
-psi_mps = psi.as_mps(params)
+psi_mps = psi.as_mps(vpvals)
 print('<psi|psi>={}'.format(psi_mps.expect()))
 
 #%% Setup MPO from TenPY model
@@ -72,6 +72,6 @@ W = [[Id,Sx,g*Sz], [None,None,-J*Sx], [None,None,Id]]
 H = tenpy.networks.mpo.MPO.from_grids([site], [W], bc='infinite', IdL=0, IdR=-1)
 
 # compute energy
-tenpy_mps = psi.to_tenpy(params,L=np.inf)
+tenpy_mps = psi.to_tenpy(vpvals,L=np.inf)
 holo_E = (H.expectation_value(tenpy_mps)).real
 print('Tenpy Ising model energy = {:.4}'.format(holo_E))
