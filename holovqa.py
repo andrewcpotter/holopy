@@ -39,7 +39,7 @@ class IsoTensor(object):
         """
         self.n_params = n_params
         self.circuit_format = circuit_format
-        self.regdims = len(qubits)
+        self.regdims = [len(reg) for reg in qubits]
         self.qubits = qubits
         self.tensor_shape = np.append(2**np.array(self.regdims),2**np.array(self.regdims))
         
@@ -79,35 +79,39 @@ class HoloMPS(object):
     """
     
     
-    def __init__(self,nphys,nbond,param_names,l_uc=1,circuit_format = 'cirq'):
+    def __init__(self,phys_qubits, bond_qubits, param_names,l_uc=1,circuit_format = 'cirq'):
         """
         inputs:
-            nphys, int, number of physical qubits
-            nbond, int, number of bond qubits
+            phys_qubits, register of physical qubits, 
+            bond_qubits, register of bond qubits,
+                (for cirq: register= list of named qubits)
             l_uc, int, number of sites in unit cell
             param_names,list of sympy symbols, parameterized gate parameters (shared by all tensors)
             circuit_format, str, (default='cirq'), type of circuit editor/simulator used
         """
-        self.nphys = nphys # number of physical qubits
-        self.nbond = nbond # number of bond qubits
+
         self.l_uc = l_uc # length of unit cell
         self.param_names = param_names # list of sympy symbols (shared by all tensors)
         self.n_params = len(param_names)
         
-        if circuit_format != 'cirq':
-            self.qp = [cirq.NamedQubit('p'+str(j)) for j in range(nphys)] # physical qubits
-            self.qb = [cirq.NamedQubit('b'+str(j)) for j in range(nbond)] # bond qubits
-            self.qubits = [qp,qb]
+        if circuit_format == 'cirq':
+            self.nphys = len(phys_qubits) # number of physical qubits
+            self.nbond = len(bond_qubits) # number of bond qubits
+            self.qp = phys_qubits # physical qubits
+            self.qb = bond_qubits # bond qubits
+            self.qubits = [self.qp,self.qb]
 
             # make the MPS/tensor-train -- same qubits used by each tensor
-            self.bdry_tensor = IsoTensor(qubits,self.n_params) # tensor for left boundary vector
-            self.sites = [IsoTensor(qubits,self.n_params) for j in range(l_uc)]
+            self.bdry_tensor = IsoTensor([self.qb],self.n_params) # tensor for left boundary vector
+            self.sites = [IsoTensor(self.qubits,self.n_params) for j in range(l_uc)]
 
         else:
             raise NotImplementedError('Only cirq implemented')
+            
+    
     
     ## cpu simulation ##  
-    def compute_left_bdry_vector(self,params):
+    def left_bdry_vector(self,params):
         """
         computes full unitaries for each state (any initial state for physicalqubit)
         inputs:
@@ -116,10 +120,10 @@ class HoloMPS(object):
             bdry_vec, unitary correspond to boundary
             ulist, list of unitaries for tensors in unit cell
         """
-        bvec_l = self.bdry_tensor.unitary(params)[0,:,0,0] # boundary circuit tensor 
+        bvec_l = self.bdry_tensor.unitary(params)[:,0] # boundary circuit tensor 
         return bvec_l
     
-    def compute_unitaries(self,params):
+    def unitaries(self,params):
         """
         computes full unitaries for each state (any initial state for physicalqubit)
         inputs:
@@ -130,7 +134,7 @@ class HoloMPS(object):
         ulist = [self.sites[j].unitary(params) for j in range(self.l_uc)]
         return ulist
     
-    def compute_tensors(self,params):
+    def tensors(self,params):
         """
         computes tensors for fixed initial state of physical qubit = |0>
         inputs:
@@ -138,35 +142,38 @@ class HoloMPS(object):
         returns:
             tensors, list of rank-3 tensors for each site in unit cell
         """
-        tensors = [self.sites[j].unitary(params)[:,:,0,:] for j in range(len(self.tensors))]
+        tensors = [self.sites[j].unitary(params)[:,:,0,:] for j in range(self.l_uc)]
         return tensors
     
     ## Convert to other format(s) ##
-    def to_tenpy(self,params,infinite=False):
+    def to_tenpy(self,params,L=1):
         """
         inputs:
             params, dictionary of parameters {'name':numerical-value}
-            infinite, bool (default=false), whether to export to iMPS
+            L, int, number of repetitions of unit cell, 
+                set to np.inf for iMPS
             TODO: add any other args needed to specify, symmetries, site-type etc...
         outputs:
             tenpy MPS object created from cirq description
         """
         raise NotImplementedError
         
-    def to_mps(self,params):
+    def as_mps(self,params,L=1):
         """
         converts to custom MPS class object
         inputs:
             params, dictionary of parameters {'name':numerical-value}
+            L, int, number of repetitions of unit cell, 
+                set to np.inf for iMPS
         outputs:
             custom MPS object created from cirq description
         """
-        tensors = self.compute_tensors(params)
-        bvecl = self.compute_compute_left_bdry_vector
-        state = mps.MPS(tensors,L=self.L,bdry_vecs=[bvecl,None], rcf = True)
+        tensors = self.tensors(params)
+        bvecl = self.left_bdry_vector(params)
+        state = mps.MPS(tensors,L=L,bdry_vecs=[bvecl,None], rcf = True)
         return state
     
-    def to_mpo(self,params):
+    def as_mpo(self,params):
         """
         converts to custom MPO class object
         inputs:
@@ -175,7 +182,7 @@ class HoloMPS(object):
             custom MPS object created from cirq description
         """
         tensors = self.compute_unitaries(params)
-        bvecl = self.compute_compute_left_bdry_vector
+        bvecl = self.compute_left_bdry_vector(params)
         op = mps.MPO(tensors,L=self.L,bdry_vecs=[bvecl,None], rcf = True)
         return op
         
@@ -203,20 +210,7 @@ class HoloMPS(object):
       
 
 #%%
-#class HoloThermalMPDO(HoloMPS):
-#    """
-#    Object for: Holographic MPO generated by variational/parameterized circuit 
-#    
-#    TODO: add capability to 
-#    """
 
-#%% test/debug
-nphys = 1
-nbond = 1
-n_params = 2
-qp = [cirq.NamedQubit('p'+str(j)) for j in range(nphys)] # physical qubits
-qb = [cirq.NamedQubit('b'+str(j)) for j in range(nbond)] # bond qubits
-qubits = [qp,qb]
 
 
 
