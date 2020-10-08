@@ -15,6 +15,9 @@ import cirq
 
 import mps
 import tenpy
+
+#%% 
+
 #%% 
 class IsoTensor(object):
     """
@@ -98,20 +101,19 @@ class HoloMPS(object):
         """
 
         self.l_uc = len(circuits) # length of unit cell
-        self.circuits=circuits
         self.param_names = param_names # list of sympy symbols (shared by all tensors)
         self.n_params = len(param_names)
         
         if circuit_format == 'cirq':
             self.nphys = len(phys_qubits) # number of physical qubits
             self.nbond = len(bond_qubits) # number of bond qubits
-            self.qp = phys_qubits # physical qubits
-            self.qb = bond_qubits # bond qubits
-            self.qubits = [self.qp,self.qb]
 
             # make the MPS/tensor-train -- same qubits used by each tensor
-            self.bdry_tensor = IsoTensor([self.qb],self.param_names,bdry_circ) # tensor for left boundary vector
-            self.sites = [IsoTensor(self.qubits,self.param_names,self.circuits[j]) for j in range(self.l_uc)]
+            self.bdry_tensor = IsoTensor([bond_qubits],self.param_names,bdry_circ) # tensor for left boundary vector
+            self.sites = [IsoTensor([phys_qubits,bond_qubits],
+                                    self.param_names,
+                                    circuits[j],
+                                    circuit_format='cirq') for j in range(self.l_uc)]
 
         else:
             raise NotImplementedError('Only cirq implemented')
