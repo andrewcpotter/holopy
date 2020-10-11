@@ -53,4 +53,8 @@ edges = [
 #meas_dict = {nodes[j]:[(preg,cregs[j],qk.QuantumCircuit())] for j in range(len(cregs))}
 param_assignments = {nodes[j]:[plabels[j]] for j in range(L)}
 tn = IsoNetwork(nodes,edges,qregs,param_assignments)
+
+#  generate and draw the circuit
 tn.construct_circuit(paramdict).draw('mpl',scale=0.5)
+# output to qasm
+print(tn.to_qasm(paramdict))
