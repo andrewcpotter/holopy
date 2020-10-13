@@ -167,7 +167,7 @@ class HoloMPS(object):
                                                 form=None)
             
         else:
-            B_arrs = [np.swapaxes(self.tensors(params)[0],1,2) for tensor in tensors]
+            B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)]
             B_arrs[0] = B_arrs[0][:,0:1,:]
             B_arrs[-1] = B_arrs[-1][:,:,0:1]
             psi = tenpy.networks.mps.MPS.from_Bflat([site]*L,
