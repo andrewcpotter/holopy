@@ -157,20 +157,27 @@ class HoloMPS(object):
         outputs:
             tenpy MPS object created from cirq description
         """
+        site = tenpy.networks.site.SpinHalfSite(conserve=None)
         if (L==np.inf) and (self.l_uc==1) and (self.nphys==1):
-            site = tenpy.networks.site.SpinHalfSite(conserve=None)
             B = np.swapaxes(self.tensors(params)[0],1,2)
             psi = tenpy.networks.mps.MPS.from_Bflat([site], 
                                                 [B], 
                                                 bc='infinite', 
                                                 dtype=complex, 
                                                 form=None)
-            psi.canonical_form()
-            psi.convert_form(psi.form)
-            return psi
+            
         else:
-            raise NotImplementedError
-        
+            B_arrs = [np.swapaxes(self.tensors(params)[0],1,2) for tensor in tensors]
+            B_arrs[0] = B_arrs[0][:,0:1,:]
+            B_arrs[-1] = B_arrs[-1][:,:,0:1]
+            psi = tenpy.networks.mps.MPS.from_Bflat([site]*L,
+                                                    B_arrs, 
+                                                    bc = 'finite', 
+                                                    dtype=complex, 
+                                                    form=None)    
+        psi.canonical_form()
+        psi.convert_form(psi.form)
+        return psi        
     def as_mps(self,params,L=1):
         """
         converts to custom MPS class object
