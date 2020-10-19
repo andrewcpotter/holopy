@@ -12,6 +12,9 @@ import qiskit as qk
 #import sympy 
 import networkx as nx
 
+import mps
+import tenpy
+
 #%% 
 class ParamCircuit(object):
     """
@@ -384,3 +387,121 @@ class IsoMPS(IsoNetwork):
 
         else:
             raise NotImplementedError('only qiskit implemented')
+            
+    ## cpu simulation ##  
+    def left_bdry_vector(self,params):
+        """
+        computes full unitaries for each state (any initial state for physicalqubit)
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+        returns:
+            bdry_vec, unitary correspond to boundary
+            ulist, list of unitaries for tensors in unit cell
+        """
+        bvec_l = self.bdry_tensor.unitary(params)[:,0] # boundary circuit tensor 
+        return bvec_l
+    
+    def unitaries(self,params):
+        """
+        computes full unitaries for each state (any initial state for physicalqubit)
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+        returns:
+            ulist, list of rank-4 tensors for each site in unit cell
+        """
+        ulist = [self.sites[j].unitary(params) for j in range(self.l_uc)]
+        return ulist
+    
+    def tensors(self,params):
+        """
+        computes tensors for fixed initial state of physical qubit = |0>
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+        returns:
+            tensors, list of rank-3 tensors for each site in unit cell
+        """
+        tensors = [self.sites[j].unitary(params)[:,:,0,:] for j in range(self.l_uc)]
+        return tensors
+    
+    ## Convert to other format(s) ##
+    def to_tenpy(self,params,L=1):
+        """
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+            L, int, number of repetitions of unit cell, 
+                set to np.inf for iMPS
+            TODO: add any other args needed to specify, symmetries, site-type etc...
+        outputs:
+            tenpy MPS object created from cirq description
+        """
+        site = tenpy.networks.site.SpinHalfSite(conserve=None)
+        if (L==np.inf) and (self.l_uc==1) and (self.nphys==1):
+            B = np.swapaxes(self.tensors(params)[0],1,2)
+            psi = tenpy.networks.mps.MPS.from_Bflat([site], 
+                                                [B], 
+                                                bc='infinite', 
+                                                dtype=complex, 
+                                                form=None)
+            
+        else:
+            B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)]
+            B_arrs[0] = B_arrs[0][:,0:1,:]
+            B_arrs[-1] = B_arrs[-1][:,:,0:1]
+            psi = tenpy.networks.mps.MPS.from_Bflat([site]*L,
+                                                    B_arrs, 
+                                                    bc = 'finite', 
+                                                    dtype=complex, 
+                                                    form=None)    
+        psi.canonical_form()
+        psi.convert_form(psi.form)
+        return psi    
+    
+    def as_mps(self,params,L=1):
+        """
+        converts to custom MPS class object
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+            L, int, number of repetitions of unit cell, 
+                set to np.inf for iMPS
+        outputs:
+            custom MPS object created from cirq description
+        """
+        tensors = self.tensors(params)
+        bvecl = self.left_bdry_vector(params)
+        state = mps.MPS(tensors,L=L,bdry_vecs=[bvecl,None], rcf = True)
+        return state
+    
+    def as_mpo(self,params):
+        """
+        converts to custom MPO class object
+        inputs:
+            params, dictionary of parameters {'name':numerical-value}
+        outputs:
+            custom MPS object created from cirq description
+        """
+        tensors = self.compute_unitaries(params)
+        bvecl = self.compute_left_bdry_vector(params)
+        op = mps.MPO(tensors,L=self.L,bdry_vecs=[bvecl,None], rcf = True)
+        return op
+        
+    ##  correlation function sampling ##
+    def sample_correlations(self,L,bases,N_samples):
+        """
+        basis: measurement basis for each site
+            possible formats: 
+                - cirq circuit for physical qubits that maps physical qubits to measurement basis
+                - string of 
+        possible backends:  
+            'tenpy' - uses 
+            'qasm' - output qasm script to measure
+            
+        inputs:
+            options: dictionary with entries specifying:
+                burn-in length, 
+                unit cell length, 
+                basis to measure in for each site,
+                number of samples to take (could be infinite for cpu-simulations)
+                backend: whether to run as 
+                
+        """
+        raise NotImplementedError
