@@ -9,7 +9,7 @@ import numpy as np
 import qiskit as qk
 import networkx as nx
 
-from isonetwork2 import*
+from isonetwork import*
 
 #%% qiskit debugging
 nphys = 2

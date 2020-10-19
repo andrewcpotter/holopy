@@ -56,6 +56,10 @@ class IsoTensor(object):
                 self.cicruit = circuit
         else:
             raise NotImplementedError('Only cirq implemented')
+            
+    def set_param_names(self,param_names):
+        self.param_names= param_names
+        self.n_params = len(param_names)
 
     def unitary(self,params):
         """
@@ -186,7 +190,8 @@ class HoloMPS(object):
                                                     form=None)    
         psi.canonical_form()
         psi.convert_form(psi.form)
-        return psi        
+        return psi    
+    
     def as_mps(self,params,L=1):
         """
         converts to custom MPS class object
@@ -216,7 +221,7 @@ class HoloMPS(object):
         return op
         
     ##  correlation function sampling ##
-    def sample_correlations(self,options:dict):
+    def sample_correlations(self,L,bases,N_samples):
         """
         basis: measurement basis for each site
             possible formats: 
@@ -237,6 +242,7 @@ class HoloMPS(object):
         """
         raise NotImplementedError
       
+#%% 
 
 #%%
 

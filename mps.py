@@ -215,40 +215,40 @@ class MPO(object):
         
 
 #%% debug/test
-
-u_swap = np.array([[1,0,0,0],
-                   [0,0,1,0],
-                   [0,1,0,0],
-                   [0,0,0,1]]).reshape([2,2,2,2])
-
-# ancilla controlled not    
-u_cx = np.array([[1,0,0,0],
-                 [0,0,0,1],
-                 [0,0,1,0],
-                 [0,1,0,0]]).reshape([2,2,2,2])
-
-# random unitary    
-h_random = np.random.randn(4,4)
-h_random += h_random.T
-u_random = la.expm(-1j*h_random).reshape([2,2,2,2])
-    
-# mps     
-l_uc = 1
-L = 1
-lvec = np.array([1,0])
-rvec = None#np.array([1,0]).T
-bdry_vecs = [lvec,rvec]
-tensors = np.array([u_random[:,:,0,:] for j in range(l_uc)])
-
-state = MPS(tensors,L=L,bdry_vecs=bdry_vecs) 
-t_mat = state.transfer_matrix()
-print('<psi|psi> = {}'.format(state.expect()))
-
-# mpo test
-op_lvec = np.array([1,0])
-op_rvec = np.array([1,0]).T
-op_bdry_vecs = [op_lvec,op_rvec]
-op_tensors = np.array([u_swap for j in range(l_uc)])
-op = MPO(op_tensors,L=L,bdry_vecs=op_bdry_vecs)
-
-print('<psi|op|psi> = {}'.format(state.expect(op)))
+#
+#u_swap = np.array([[1,0,0,0],
+#                   [0,0,1,0],
+#                   [0,1,0,0],
+#                   [0,0,0,1]]).reshape([2,2,2,2])
+#
+## ancilla controlled not    
+#u_cx = np.array([[1,0,0,0],
+#                 [0,0,0,1],
+#                 [0,0,1,0],
+#                 [0,1,0,0]]).reshape([2,2,2,2])
+#
+## random unitary    
+#h_random = np.random.randn(4,4)
+#h_random += h_random.T
+#u_random = la.expm(-1j*h_random).reshape([2,2,2,2])
+#    
+## mps     
+#l_uc = 1
+#L = 1
+#lvec = np.array([1,0])
+#rvec = None#np.array([1,0]).T
+#bdry_vecs = [lvec,rvec]
+#tensors = np.array([u_random[:,:,0,:] for j in range(l_uc)])
+#
+#state = MPS(tensors,L=L,bdry_vecs=bdry_vecs) 
+#t_mat = state.transfer_matrix()
+#print('<psi|psi> = {}'.format(state.expect()))
+#
+## mpo test
+#op_lvec = np.array([1,0])
+#op_rvec = np.array([1,0]).T
+#op_bdry_vecs = [op_lvec,op_rvec]
+#op_tensors = np.array([u_swap for j in range(l_uc)])
+#op = MPO(op_tensors,L=L,bdry_vecs=op_bdry_vecs)
+#
+#print('<psi|op|psi> = {}'.format(state.expect(op)))
