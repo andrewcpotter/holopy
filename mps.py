@@ -45,7 +45,7 @@ class MPS(object):
         if np.array(bdry_vecs[0]==None).all():
             # if bdry_vec not specified, set to (1,0,0,0...)
             self.bdry_vecs += [np.zeros(self.chi)]
-            self.bdry_vec[0][0]=1
+            self.bdry_vecs[0][0]=1
         else:
             if bdry_vecs[0].size != self.chi:
                 raise ValueError('left boundary vector different size than bulk tensors')
