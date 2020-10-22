@@ -206,8 +206,8 @@ class MPO(object):
         for j in range(2):
             if np.array(bdry_vecs[j]==None).all():
                 # if bdry_vec not specified, set to (1,0,0,0...)
-                self.bdry_vecs += np.zeros(self.chi)
-                self.bdry_vecs[j]=1
+                self.bdry_vecs += [np.zeros(self.chi)]
+                self.bdry_vecs[j][0]=1
             else:
                 if bdry_vecs[j].size != self.chi:
                     raise ValueError('left boundary vector different size than bulk tensors')
