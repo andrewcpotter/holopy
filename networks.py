@@ -276,25 +276,23 @@ class IsoMPS(IsoNetwork):
                         mc_uc.append(qc)
                     mc_total.append(mc_uc)
             else:
-                # now bases is a string with total length L
+                # now bases is a string with total length L * l_uc
                 # explicitly list the pauli string for each site (already consider the JW-string outside)
-                #if self.L != len(bases):
-                    #print(len(bases))
-                    #print(self.L)
-                    #raise ValueError('bases must have same length with L')
-                mc1 = []
-                for base in bases:
-                    qc = qk.QuantumCircuit()
-                    for reg in self.qregs: qc.add_register(reg)
-                    if base == 'x':
-                        for i in range(len(preg)):
-                            qc.h(preg[i])
-                    if base == 'y':
-                        for i in range(len(preg)):
-                            qc.h(preg[i])
-                            qc.sdg(preg[i])
-                    mc1.append(qc)
-                mc_total = [mc1]      
+                for k in range(L):
+                    mc1 = []
+                    for j in range(l_uc):
+                        qc = qk.QuantumCircuit()
+                        for reg in self.qregs: qc.add_register(reg)
+                        base = bases[k * L + j]
+                        if base == 'x':
+                            for i in range(len(preg)):
+                                qc.h(preg[i])
+                        elif base == 'y':
+                            for i in range(len(preg)):
+                                qc.h(preg[i])
+                                qc.sdg(preg[i])
+                        mc1.append(qc)
+                    mc_total.append(mc1)     
             return mc_total
         else:
             raise NotImplementedError('only qiskit implemented')
