@@ -45,6 +45,7 @@ class IsoMPS(IsoNetwork):
             L, int (default=1), Length of System (number of times to repeat unit cell)
             bdry_circ, boundary vector circuit for prepping initial state of bond-qubits
             circuit_format, str, (default='cirq'), type of circuit editor/simulator used
+            measurement_circuit, list of circuits to be performed on physical register
         """
 
         self.l_uc = len(pcircs) # length of unit cell
@@ -56,6 +57,7 @@ class IsoMPS(IsoNetwork):
             self.circuit_format = kwargs['circuit_format']
         else: 
             self.circuit_format = 'qiskit'
+
         if 'L' in kwargs.keys():
             self.L = kwargs['L']
         else:
@@ -67,11 +69,19 @@ class IsoMPS(IsoNetwork):
                              
             self.nphys = len(preg) # number of physical qubits
             self.nbond = len(breg) # number of bond qubits
-            
+            self.qregs = [preg,breg]
             if 'boundary_circuit' in kwargs.keys():
                 bdry_circ = kwargs['boundary_circuit']
             else:
-                bdry_circ = QKParamCircuit(qk.QuantumCircuit(), [])
+                bdry_circ = QKParamCircuit(qk.QuantumCircuit(), []) 
+            if 'bases' in kwargs.keys():
+                if 'FH' in kwargs.keys():
+                    self.FH = kwargs['FH']
+                else:
+                    self.FH = False
+                self.measurement_circuit = self.measurement(kwargs['bases'], self.FH, preg)
+            else:
+                self.measurement_circuit = [[qk.QuantumCircuit() for i in range(self.l_uc)]for j in range(self.L)]
                 
             # make the MPS/tensor-train -- same qubits used by each tensor
             self.bdry_tensor = IsoTensor('v_L',
@@ -82,7 +92,7 @@ class IsoMPS(IsoNetwork):
                                                pcircs[y],
                                                meas_list=[(preg,
                                                            self.cregs[x][y],
-                                                           qk.QuantumCircuit())])
+                                                           self.measurement_circuit[x][y])])
                           for y in range(self.l_uc)]
                          for x in range(self.L)]
             
@@ -92,7 +102,7 @@ class IsoMPS(IsoNetwork):
             for x in range(self.L): self.nodes += self.sites[x]
             
             self.edges = [(self.nodes[i],self.nodes[i+1],{'qreg':breg}) for i in range(len(self.nodes)-1)]
-            self.qregs = [preg,breg]
+            
             
             # construct graph and check that is a DAG
             # check for repeated node names
@@ -218,16 +228,16 @@ class IsoMPS(IsoNetwork):
         return op
         
     ##  correlation function sampling ##
-    def sample_correlations(self,L,bases,N_samples):
+    def measurement(self, bases, FH, preg):
         """
+        let's aim at generating a measurement circuit here
         basis: measurement basis for each site
             possible formats: 
                 - cirq circuit for physical qubits that maps physical qubits to measurement basis
-                - string of 
+                - string of basis as 
         possible backends:  
             'tenpy' - uses 
             'qasm' - output qasm script to measure
-            
         inputs:
             options: dictionary with entries specifying:
                 burn-in length, 
@@ -235,8 +245,57 @@ class IsoMPS(IsoNetwork):
                 basis to measure in for each site,
                 number of samples to take (could be infinite for cpu-simulations)
                 backend: whether to run as 
+                pauli basis or fermi?
                 
+        process: first specify the circuit according to the measurement needed
+        need to add the choice of measurement circuit in the 
+        shots specified in the qsam thing?
+        we need to qsam each time we sample?
         """
-        raise NotImplementedError
+        if self.circuit_format == 'qiskit':
+            mc_total = []
+            if FH == False:
+                 #measurement circuit
+        #check whether the input string is a list 
+                if self.L != len(bases):
+                    raise ValueError('bases must have same length with L')
+                for base_uc in bases:
+                    if len(base_uc) != self.l_uc:
+                        raise ValueError('base must be a string with same length as l_uc ')   
+                    mc_uc = []
+                    for base in base_uc:
+                        qc = qk.QuantumCircuit()
+                        for reg in self.qregs: qc.add_register(reg)
+                        if base == 'x':
+                            for i in range(len(preg)):
+                                qc.h(preg[i])
+                        if base == 'y':
+                            for i in range(len(preg)):    
+                                qc.h(preg[i])
+                                qc.sdg(preg[i])
+                        mc_uc.append(qc)
+                    mc_total.append(mc_uc)
+            else:
+                # now bases is a string with total length L
+                # explicitly list the pauli string for each site (already consider the JW-string outside)
+                #if self.L != len(bases):
+                    #print(len(bases))
+                    #print(self.L)
+                    #raise ValueError('bases must have same length with L')
+                mc1 = []
+                for base in bases:
+                    qc = qk.QuantumCircuit()
+                    for reg in self.qregs: qc.add_register(reg)
+                    if base == 'x':
+                        for i in range(len(preg)):
+                            qc.h(preg[i])
+                    if base == 'y':
+                        for i in range(len(preg)):
+                            qc.h(preg[i])
+                            qc.sdg(preg[i])
+                    mc1.append(qc)
+                mc_total = [mc1]      
+            return mc_total
+        else:
+            raise NotImplementedError('only qiskit implemented')
         
-#%% 

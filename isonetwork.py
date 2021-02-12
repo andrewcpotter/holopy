@@ -105,8 +105,9 @@ class IsoTensor(object):
             cres = self.circ.bind_parameters(params)
             if include_measurements:
                 for qreg,creg,mcirc in self.meas_list:
+                    cres = cres.combine(mcirc) 
                     cres.add_register(creg)
-                    cres.combine(mcirc) # add the measurement circuit
+                    # add the measurement circuit
                     cres.measure(qreg,creg)
                     cres.reset(qreg)
             return cres
