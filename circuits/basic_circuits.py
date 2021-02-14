@@ -108,18 +108,22 @@ def star_circ(qp,qb,label,circ_type='su4'):
     
     # parse number of parameters
     if circ_type=='su4': 
-        n_params = nb*15
-        params = qk.circuit.ParameterVector(label,length=n_params)
-        for i in range(nb):
-            add_su4_circ(circ,qp[0],qb[i],params[15*i:15*i+15])
+        param_per_circ = 15
+        n_params = param_per_circ*nb
+        circ_fn = add_su4_circ
         
     elif circ_type=='xxz':
-        n_params = 3*nb
-        params = qk.circuit.ParameterVector(label,length=n_params)
-        for i in range(nb):
-            add_xxz_circ(circ,qp[0],qb[i],params[3*i:3*i+3])
+        param_per_circ = 3
+        n_params = param_per_circ*nb
+        circ_fn = add_xxz_circ
     else:
         raise NotImplementedError(circ_type+' not implemented')
+        
+    params = [qk.circuit.Parameter(label+str(j)) for j in range(n_params)]#qk.circuit.ParameterVector(label,length=n_params)
+    for i in range(nb):
+        circ_fn(circ,qp[0],
+                qb[i],
+                params[param_per_circ*i:param_per_circ*i+param_per_circ])
     
     param_circ = QKParamCircuit(circ,params)
     return param_circ,params
