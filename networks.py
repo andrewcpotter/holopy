@@ -276,7 +276,7 @@ class IsoMPS(IsoNetwork):
                         mc_uc.append(qc)
                     mc_total.append(mc_uc)
             else:
-                # now bases is a string with total length L * l_uc
+                # now bases is a string with total length L * l_uc * len(preg)
                 # explicitly list the pauli string for each site (already consider the JW-string outside)
                 for k in range(L):
                     mc1 = []
