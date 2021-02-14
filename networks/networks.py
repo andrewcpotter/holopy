@@ -15,7 +15,7 @@ import networkx as nx
 import tenpy
 
 # custom things
-from isonetwork import IsoTensor, IsoNetwork, QKParamCircuit
+from networks.isonetwork import IsoTensor, IsoNetwork, QKParamCircuit
 import mps.mps as mps
 
 
