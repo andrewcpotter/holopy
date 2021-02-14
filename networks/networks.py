@@ -280,12 +280,12 @@ class IsoMPS(IsoNetwork):
             else:
                 # now bases is a string with total length L * l_uc
                 # explicitly list the pauli string for each site (already consider the JW-string outside)
-                for k in range(L):
+                for k in range(self.L):
                     mc1 = []
-                    for j in range(l_uc):
+                    for j in range(self.l_uc):
                         qc = qk.QuantumCircuit()
                         for reg in self.qregs: qc.add_register(reg)
-                        base = bases[k * L + j]
+                        base = bases[k * self.L + j]
                         if base == 'x':
                             for i in range(len(preg)):
                                 qc.h(preg[i])

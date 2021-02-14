@@ -117,7 +117,7 @@ def star_circ(qp,qb,label,circ_type='su4'):
         n_params = 3*nb
         params = qk.circuit.ParameterVector(label,length=n_params)
         for i in range(nb):
-            add_xxz_circ(qp[0],qb[i],params[15*i:15*i+15])
+            add_xxz_circ(circ,qp[0],qb[i],params[3*i:3*i+3])
     else:
         raise NotImplementedError(circ_type+' not implemented')
     
