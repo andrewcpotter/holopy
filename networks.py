@@ -283,12 +283,11 @@ class IsoMPS(IsoNetwork):
                     for j in range(l_uc):
                         qc = qk.QuantumCircuit()
                         for reg in self.qregs: qc.add_register(reg)
-                        base = bases[k * L + j]
-                        if base == 'x':
-                            for i in range(len(preg)):
+                        for i in range(len(preg)):
+                            base = bases[k*L + j*l_uc + i]
+                            if base == 'x':
                                 qc.h(preg[i])
-                        elif base == 'y':
-                            for i in range(len(preg)):
+                            elif base == 'y':
                                 qc.h(preg[i])
                                 qc.sdg(preg[i])
                         mc1.append(qc)
