@@ -99,15 +99,16 @@ class IsoTensor(object):
         """
         resolves parameters in circuit
         inputs:
-            params: dictionary of parameter names and values
+            params: dictionary of {parameter: values}
             include_measurements, bool, whether or not to include measurement and reset
         outputs:
             resolved circuit
         """
         if self.circuit_format == 'qiskit':
-            cres = self.circ.bind_parameters(params)
-            if include_measurements:
+            cres = self.circ.bind_parameters(params) # resolved circuit
+            if include_measurements: # add measurements 
                 for qreg,creg,mcirc in self.meas_list:
+                    # add the classical registers to hold measurements
                     cres = cres.combine(mcirc) 
                     cres.add_register(creg)
                     # add the measurement circuit
@@ -256,7 +257,7 @@ class IsoNetwork(object):
             
     
     ## Circuit Construction Methods ##
-    def construct_circuit(self,param_dict):
+    def construct_circuit(self,param_dict,include_measurements=True):
         """
         input: 
             param_dict, dict of {parameter:value}
@@ -264,11 +265,11 @@ class IsoNetwork(object):
             circuit
         """
         if self.circuit_format=='qiskit':
-            return self.construct_cirquit_qiskit(param_dict)
+            return self.construct_cirquit_qiskit(param_dict,include_measurements)
         else:
             raise NotImplementedError
         
-    def construct_cirquit_qiskit(self,param_dict):
+    def construct_cirquit_qiskit(self,param_dict,include_measurements=True):
         """
         construct circuit for network using qiskit
         """        
@@ -279,7 +280,7 @@ class IsoNetwork(object):
         
         for node in self.sorted_nodes:
             node_dict = {k:param_dict[k] for k in self.param_assignments[node]}
-            node_circ = node.resolve_circuit(node_dict)
+            node_circ = node.resolve_circuit(node_dict,include_measurements)
             self.circ = self.circ.combine(node_circ)
         
         return self.circ
