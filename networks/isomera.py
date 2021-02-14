@@ -1,11 +1,16 @@
+#!/usr/bin/env python
+# coding: utf-8
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Oct 19 14:20:36 2020
-
-@author: acpotter
+Created on Jan 5 2021
+@author: Yuxuan Zhang
+based on the Iso-MPS codes
 """
 #%% -- IMPORTS -- 
+import sys
+sys.path.append("..") # import one subdirectory up in files
+
 # external packages
 import numpy as np
 import qiskit as qk
@@ -13,12 +18,12 @@ import networkx as nx
 import tenpy
 
 # custom things
-from isonetwork import IsoTensor, IsoNetwork, QKParamCircuit
-import mps
+from networks.isonetwork import IsoTensor, IsoNetwork, QKParamCircuit
+import mps.mps as mps
 
 
 #%%
-class IsoMPS(IsoNetwork):
+class IsoMERA(IsoNetwork):
     """
     MPS defined by 
         - number of physical and bond qubits (sets up associated quantum registers accordingly)
@@ -31,13 +36,16 @@ class IsoMPS(IsoNetwork):
                  preg, 
                  breg,
                  pcircs,
+                 smax, #
                  **kwargs):
         """
         inputs:
-            preg, list of bond qubit registers
-            breg, list of bond qubit registers
+            preg, list of lists of physical qubit registers on each site; 
+                notice that in MERA setting we require len(preg) = 2^(smax-1)
+            breg, list of lists of physical qubit registers on each site;
+                notice that in MERA setting we require len(preg) = smax
                 (for qiskit: register= quantum register)
-            l_uc, int, number of sites in unit cell
+            smax, # of layers; count from 0 to smax-1; total smax layers
             pcircs, list, of parameterized circuit objects:
                 pcircs[0] - boundary circuit (acting only on bond-qubits)
                 pcircs[1...l_uc] for each site in unit-cell
@@ -45,10 +53,8 @@ class IsoMPS(IsoNetwork):
             L, int (default=1), Length of System (number of times to repeat unit cell)
             bdry_circ, boundary vector circuit for prepping initial state of bond-qubits
             circuit_format, str, (default='cirq'), type of circuit editor/simulator used
-            measurement_circuit, list of circuits to be performed on physical register
         """
-
-        self.l_uc = len(pcircs) # length of unit cell
+        # here, pcircs is a list of lists with length 1,2,4...2^(smax-1), respectively
 
 #        self.n_params = len(param_names)
         
@@ -57,59 +63,59 @@ class IsoMPS(IsoNetwork):
             self.circuit_format = kwargs['circuit_format']
         else: 
             self.circuit_format = 'qiskit'
-
         if 'L' in kwargs.keys():
             self.L = kwargs['L']
         else:
             self.L=1 
-        
         if self.circuit_format == 'qiskit':
             # setup classical registers for measurement outcomes
-            self.cregs = [[qk.ClassicalRegister(len(preg)) for i in range(self.l_uc)] for j in range(self.L)]                          
-                             
-            self.nphys = len(preg) # number of physical qubits
-            self.nbond = len(breg) # number of bond qubits
-            self.qregs = [preg,breg]
+            self.cregs = [[qk.ClassicalRegister(len(preg[z]))for z in range(2**(smax-1))]#label the thing on each layer
+                         for x in range(self.L)]   
+            self.nphys = 0
+            self.nbond = 0
+            for i in range(len(preg)):
+                self.nphys += len(preg[i]) # number of physical qubits
+            for i in range(len(breg)):
+                self.nbond += len(breg[i])  # number of bond qubits
             if 'boundary_circuit' in kwargs.keys():
-                bdry_circ = kwargs['boundary_circuit']
+                bdry_circ = kwargs['boundary_circuit'] #this, as well, has to be a list
             else:
-                bdry_circ = QKParamCircuit(qk.QuantumCircuit(), []) 
-            if 'bases' in kwargs.keys():
-                if 'FH' in kwargs.keys():
-                    self.FH = kwargs['FH']
-                else:
-                    self.FH = False
-                self.measurement_circuit = self.measurement(kwargs['bases'], self.FH, preg)
-            else:
-                self.measurement_circuit = [[qk.QuantumCircuit() for i in range(self.l_uc)]for j in range(self.L)]
+                bdry_circ = [QKParamCircuit(qk.QuantumCircuit(), []) for i in range(smax)]
                 
             # make the MPS/tensor-train -- same qubits used by each tensor
-            self.bdry_tensor = IsoTensor('v_L',
-                                         [breg],
-                                         bdry_circ)
-            self.sites= [[IsoTensor('A'+str(x)+str(y),
-                                               [preg,breg],
-                                               pcircs[y],
-                                               meas_list=[(preg,
-                                                           self.cregs[x][y],
-                                                           self.measurement_circuit[x][y])])
-                          for y in range(self.l_uc)]
+            self.bdry_tensor = [IsoTensor('v_L'+str(i),
+                                         [breg[i]],
+                                         bdry_circ[i]) for i in range(smax)]
+            def mlist(preg,x,y,z):
+                if y == smax-1:
+                    meas_list=[(preg,self.cregs[x][z],qk.QuantumCircuit())]
+                else: 
+                    meas_list=[]
+                return meas_list
+            self.sites= [[[IsoTensor('A'+str(x)+str(y)+str(z),
+                                               [preg[z],breg[y]],
+                                               pcircs[y][z],
+                                               meas_list=mlist(preg[z],x,y,z) )
+                           for z in range(2**(y))]#label the nodes on each layer
+                          for y in range(smax)]#label the layers
                          for x in range(self.L)]
             
             # setup IsoNetwork
             # make a flat list of nodes
-            self.nodes = [self.bdry_tensor]
-            for x in range(self.L): self.nodes += self.sites[x]
-            
-            self.edges = [(self.nodes[i],self.nodes[i+1],{'qreg':breg}) for i in range(len(self.nodes)-1)]
-            
-            
+            self.nodes = self.bdry_tensor
+            for x in range(self.L): 
+                for y in range(smax):
+                    self.nodes += self.sites[x][y]
+            self.edges = [(self.bdry_tensor[i],self.sites[0][i][0],{'qreg':breg[i]}) for i in range(smax)]
+            self.edges+=[(self.sites[x][y][z],self.sites[x][y][z+1],{'qreg':breg[y]}) for x in range(self.L) for y in range(smax) for z in range (int(2**(y)-1))]
+            self.edges+=[(self.sites[x][y][z],self.sites[x][y+1][int(2*z)],{'qreg':preg[z]}) for x in range(self.L) for y in range(int(smax-1)) for z in range(int(2**(y)))]
+            self.edges+=[(self.sites[x][y][int(2**(y-1)-1)],self.sites[x+1][y][0],{'qreg':breg[y]})for x in range(self.L-1) for y in range(int(smax-1))]
+            self.qregs = breg+preg   
             # construct graph and check that is a DAG
             # check for repeated node names
             self.graph = nx.DiGraph()
             self.graph.add_nodes_from(self.nodes)
-            self.graph.add_edges_from(self.edges)        
-    
+            self.graph.add_edges_from(self.edges)
             # check that graph is directed & acyclic (DAG)
             if nx.algorithms.dag.is_directed_acyclic_graph(self.graph) != True:
                 raise RuntimeError('Graph must be directed and acyclic')
@@ -228,16 +234,16 @@ class IsoMPS(IsoNetwork):
         return op
         
     ##  correlation function sampling ##
-    def measurement(self, bases, FH, preg):
+    def sample_correlations(self,L,bases,N_samples):
         """
-        let's aim at generating a measurement circuit here
         basis: measurement basis for each site
             possible formats: 
                 - cirq circuit for physical qubits that maps physical qubits to measurement basis
-                - string of basis as 
+                - string of 
         possible backends:  
             'tenpy' - uses 
             'qasm' - output qasm script to measure
+            
         inputs:
             options: dictionary with entries specifying:
                 burn-in length, 
@@ -245,55 +251,9 @@ class IsoMPS(IsoNetwork):
                 basis to measure in for each site,
                 number of samples to take (could be infinite for cpu-simulations)
                 backend: whether to run as 
-                pauli basis or fermi?
                 
-        process: first specify the circuit according to the measurement needed
-        need to add the choice of measurement circuit in the 
-        shots specified in the qsam thing?
-        we need to qsam each time we sample?
         """
-        if self.circuit_format == 'qiskit':
-            mc_total = []
-            if FH == False:
-                 #measurement circuit
-        #check whether the input string is a list 
-                if self.L != len(bases):
-                    raise ValueError('bases must have same length with L')
-                for base_uc in bases:
-                    if len(base_uc) != self.l_uc:
-                        raise ValueError('base must be a string with same length as l_uc ')   
-                    mc_uc = []
-                    for base in base_uc:
-                        qc = qk.QuantumCircuit()
-                        for reg in self.qregs: qc.add_register(reg)
-                        if base == 'x':
-                            for i in range(len(preg)):
-                                qc.h(preg[i])
-                        if base == 'y':
-                            for i in range(len(preg)):    
-                                qc.h(preg[i])
-                                qc.sdg(preg[i])
-                        mc_uc.append(qc)
-                    mc_total.append(mc_uc)
-            else:
-                # now bases is a string with total length L * l_uc
-                # explicitly list the pauli string for each site (already consider the JW-string outside)
-                for k in range(L):
-                    mc1 = []
-                    for j in range(l_uc):
-                        qc = qk.QuantumCircuit()
-                        for reg in self.qregs: qc.add_register(reg)
-                        base = bases[k * L + j]
-                        if base == 'x':
-                            for i in range(len(preg)):
-                                qc.h(preg[i])
-                        elif base == 'y':
-                            for i in range(len(preg)):
-                                qc.h(preg[i])
-                                qc.sdg(preg[i])
-                        mc1.append(qc)
-                    mc_total.append(mc1)     
-            return mc_total
-        else:
-            raise NotImplementedError('only qiskit implemented')
+        raise NotImplementedError
         
+#%% 
+

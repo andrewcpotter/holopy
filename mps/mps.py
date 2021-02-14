@@ -5,7 +5,8 @@ Created on Tue Oct  6 11:05:06 2020
 
 @author: acpotter
 """
-
+import sys
+sys.path.append("..") # import one subdirectory up in files
 import numpy as np
 import scipy.linalg as la
 

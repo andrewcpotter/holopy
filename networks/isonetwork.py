@@ -6,6 +6,9 @@ Created on Sun Oct 11 14:03:30 2020
 @author: acpotter
 """
 #%% -- IMPORTS -- 
+import sys
+sys.path.append("..") # import one subdirectory up in files
+
 # external packages
 import numpy as np
 import qiskit as qk
