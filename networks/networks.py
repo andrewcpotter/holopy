@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Oct 19 14:20:36 2020
-
 @author: acpotter
 """
 #%% -- IMPORTS -- 
@@ -278,19 +277,19 @@ class IsoMPS(IsoNetwork):
                         mc_uc.append(qc)
                     mc_total.append(mc_uc)
             else:
-                # now bases is a string with total length L * l_uc
+                # now bases is a string with total length L * l_uc * len(preg)
                 # explicitly list the pauli string for each site (already consider the JW-string outside)
                 for k in range(self.L):
                     mc1 = []
                     for j in range(self.l_uc):
                         qc = qk.QuantumCircuit()
                         for reg in self.qregs: qc.add_register(reg)
-                        base = bases[k * self.L + j]
-                        if base == 'x':
-                            for i in range(len(preg)):
+                        for i in range(len(preg)):
+                            # extract pauli basis for a single qubit from the string
+                            base = bases[k * self.l_uc + j * len(preg) + i]
+                            if base == 'x':
                                 qc.h(preg[i])
-                        elif base == 'y':
-                            for i in range(len(preg)):
+                            elif base == 'y':
                                 qc.h(preg[i])
                                 qc.sdg(preg[i])
                         mc1.append(qc)
@@ -298,4 +297,3 @@ class IsoMPS(IsoNetwork):
             return mc_total
         else:
             raise NotImplementedError('only qiskit implemented')
-        
