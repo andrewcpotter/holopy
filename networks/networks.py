@@ -173,7 +173,6 @@ class IsoMPS(IsoNetwork):
         """
         tensors=[]
         for j in range(self.l_uc): # start at one to skip boundary vector
-            print(j,self.sites[0],j)
             site = self.sites[0][j] 
             site_param_names = site.param_names
             site_param_vals = [params[k] for k in site_param_names]
