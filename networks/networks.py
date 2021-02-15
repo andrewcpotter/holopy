@@ -249,7 +249,7 @@ class IsoMPS(IsoNetwork):
         return op
         
     ##  correlation function sampling ##
-    def measurement(self, bases, FH, preg):
+    def measurement(self, bases, preg, FH=False):
         """
         let's aim at generating a measurement circuit here
         basis: measurement basis for each site
@@ -279,7 +279,7 @@ class IsoMPS(IsoNetwork):
                  #measurement circuit
         #check whether the input string is a list 
                 if self.L != len(bases):
-                    raise ValueError('bases must have same length with L')
+                    raise ValueError('bases must have same length as L')
                 for base_uc in bases:
                     if len(base_uc) != self.l_uc:
                         raise ValueError('base must be a string with same length as l_uc ')   
