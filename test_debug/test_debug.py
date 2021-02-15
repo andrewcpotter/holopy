@@ -96,4 +96,5 @@ def energy_tp(param_vals,*args):
     E = (H_mpo.expectation_value(psi_tp)).real
     return E
 
-energy_tp(param_vals,psi,H_mpo)
+#energy_tp(param_vals,psi,H_mpo)
+psi.tensors(param_dict)
