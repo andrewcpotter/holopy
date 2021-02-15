@@ -153,7 +153,14 @@ class IsoMPS(IsoNetwork):
         returns:
             ulist, list of rank-4 tensors for each site in unit cell
         """
-        ulist = [self.sites[j].unitary(params) for j in range(self.l_uc)]
+        ulist=[]
+        for j in range(self.l_uc): # start at one to skip boundary vector
+            site = self.sites[0][j+1] 
+            site_param_names = site.param_names
+            site_param_vals = [params[k] for k in site_param_names]
+            site_param_dict = dict(zip(site_param_names,site_param_vals))
+            ulist += [site.unitary(site_param_dict)]
+#        ulist = [self.sites[j][0].unitary(params) for j in range(self.l_uc)]
         return ulist
     
     def tensors(self,params):
@@ -164,7 +171,15 @@ class IsoMPS(IsoNetwork):
         returns:
             tensors, list of rank-3 tensors for each site in unit cell
         """
-        tensors = [self.sites[j].unitary(params)[:,:,0,:] for j in range(self.l_uc)]
+        tensors=[]
+        for j in range(self.l_uc): # start at one to skip boundary vector
+            print(j,self.sites[0],j)
+            site = self.sites[0][j] 
+            site_param_names = site.param_names
+            site_param_vals = [params[k] for k in site_param_names]
+            site_param_dict = dict(zip(site_param_names,site_param_vals))
+            tensors += [site.unitary(site_param_dict)[:,:,0,:]]
+        #tensors = [self.sites[j][0].unitary(params)[:,:,0,:] for j in range(self.l_uc)]
         return tensors
     
     ## Convert to other format(s) ##
@@ -186,7 +201,13 @@ class IsoMPS(IsoNetwork):
                                                 bc='infinite', 
                                                 dtype=complex, 
                                                 form=None)
-            
+        # elif (L==np.inf):
+        #     B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)[0]]
+        #     psi = tenpy.networks.mps.MPS.from_Bflat([site]*self.l_uc,
+        #                                             B_arrs, 
+        #                                             bc = 'infinite', 
+        #                                             dtype=complex, 
+        #                                             form=None)  
         else:
             B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)]
             B_arrs[0] = B_arrs[0][:,0:1,:]
