@@ -90,7 +90,7 @@ class IsoMPS(IsoNetwork):
                     self.FH = kwargs['FH']
                 else:
                     self.FH = False
-                self.measurement_circuit = self.measurement(kwargs['bases'], self.FH, preg)
+                self.measurement_circuit = self.measurement(kwargs['bases'], preg, self.FH)
             else:
                 self.measurement_circuit = [[qk.QuantumCircuit() for i in range(self.l_uc)]for j in range(self.L)]
                 
