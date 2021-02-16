@@ -124,7 +124,7 @@ class IsoTensor(object):
                     for qreg,creg,mcirc in self.meas_list:
                         pre_cir.add_register(creg)
                 cdict = {}
-                for i in range(len(qregs)):#need to match register to combine
+                for i in range(len(self.qregs[0])):#need to match register to combine
                     cdict['c_pre'+str(i)] = qk.ClassicalRegister(1,'c_pre'+str(i))
                     cres.add_register(cdict['c_pre'+str(i)])
                     pre_cir.add_register(cdict['c_pre'+str(i)])
