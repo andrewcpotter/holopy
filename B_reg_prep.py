@@ -8,17 +8,66 @@ Created on Sun Feb 14, 2021 lmao this my valentine
 ### %% -- IMPORTS -- 
 ### external packages
 import numpy as np
-### Special to this function:
+import qiskit as qk
+
+### Special to these functions:
+from scipy.optimize import minimize
 from scipy import linalg as la
 from scipy.sparse import linalg as lin
-
+import bond_circuits as bcircs
 
 
 #### TO DO: add this to the IsoMPS class in networks.py
 #### TO DO: include this in the equivalent class for thermal states. 
 #### NOTE: for thermal states, the information about the initial states should be included in the "tensors" method for convenience / modularity.
 
+
+##### Might want to make a bond_circuits.py script????
+##### basically, a clone of basic_circuits.py with no physical register?
+#### these functions could call that?
+
+
+def bond_qk_unitary(circuit, params):
+    """
+    inputs:
+        - params, dictionary {parameter:value} for parameters in circuit
+            note: parameter key type depends on type of circuit
+            for qiskit: parameter keys are qiskit circuit parameters
+            for cirq: they are sympy symbols
+    """
+    # setup unitary simulator and compute unitary
+    bound_circ = circuit.bind_parameters(params)
+    simulator = qk.Aer.get_backend('unitary_simulator')
+    result = qk.execute(bound_circ,simulator).result()
+    u = result.get_unitary(bound_circ) 
+
+    # need to re-size and re-order to be compatible with expected indexing
+    # note: qiskit writes bases in opposite order of usual convention
+    # e.g. for 3-qubit register: [q0,q1,q2], 
+    # the state 011 refers to: q0=1, q1=1, q2=0
+    
+    ### AARON: what is this? if need to uncomment, will include "nbond" as input argument
+    
+    # u = u.reshape(self.regdims[::-1]+self.regdims[::-1]) # reshape as tensor
+    ### nreg = len(self.qregs)
+    # old_order = list(range(2*nbond))
+    # new_order = old_order.copy()
+    # new_order[0:nbond] = old_order[0:nbond][::-1]
+    # new_order[nbond::] = old_order[nbond::][::-1]
+    # u = np.moveaxis(u,old_order,new_order)
+    return u
+
+def basic_cost_function(qk_circuit, circ_params, target_matrix):
+    # chi = len(target_matrix[0,:])
+    unitary = bond_qk_unitary(qk_circuit, circ_params)
+    print(" 'unitary' has shape {} ".format(np.shape(unitary)))
+    pure_state = unitary[:,0]
+    trace_norm = np.vdot(pure_state,np.dot(target_matrix,pure_state))
+    return -trace_norm
+
+
 ########## NEW CLASS FUNCTION:
+    # @property ##if we want the method to create new class attributes dynamically when needed? seems unnecessary.
     def BondSteadyState(self, probs = [], num_eigs = 0, debug = False):
         """
     
@@ -125,7 +174,7 @@ from scipy.sparse import linalg as lin
                 
         else:
             right_transfer = np.transpose(transfer2).conj()
-            eigs, vecs = lin.eigs(night_transfer, k=num_eigs, which='LM')
+            eigs, vecs = lin.eigs(right_transfer, k=num_eigs, which='LM')
             ### if it's Hermitian we can just use eigsh instead?
             ### eigenvalues will be returned in ascending order??? WE SHOULD CHECK.
             for foo3 in range(len(eigs)-1,-1,-1):
@@ -166,30 +215,54 @@ from scipy.sparse import linalg as lin
 
     
 
+##### DEBUG !!!!, imported from bond_circuits.py
+    self.bond_prep_circ, self.bond_prep_params = bcircs.bond_star_circ(self.breg, "burn in")
 
-
-##### FUNCTIONS that use the output of the above class function
     
 
 ### function that takes the steady state density matrix, a parametrized circuit, and a cost function as an argument and finds the best pure state approximation to steady state
 
 ### fun is a callable cost function to be defined, with format fun(circuit, steady_state_density_matrix, optional arguments as needed)
         
-
 ### For now, we can use -np.abs(Trace[ steady_state circ |0><0| circ^{\dagg} ]) as the cost function. By default, minimize the cost function
         
 
-def Burn_In_Unitary(steady_state, circuit, fun, args = None):
-    ### The lines below are apparently a useful trick to mask optional args of cost function so it's easier to reference as fun(a,b) in the future
-    if args is not None:
-        fun = lambda circ, ssdm, fun=fun: fun(circ, ssdm, *args)
-    ### now fun is a two-argument function of some circuit (acting on the bond space) and some steady state density matrix.
+    def Burn_In_Unitary(self, steady_state, fun, args = None):
+        """
         
-    ### use some optimizer to minimize fun by varying parameters of circ
+    
+        Parameters
+        ----------
+        steady_state : ndarray
+            A chi by chi density matrix for the bond register representing the steady state of the holoMPS transfer matrix
+            Should be the first entry in the "density_matrices" output of BondSteadyState() function.
+        fun : callable function
+            A callable "cost function" fun( circuit, parameters, steady_state_density_matrix, optional arguments). 
+            The first three arguments *MUST* be 1) circuit parameters, 2) the circuit 3) the target steady state DM for the bond register.
+            We will *MINIMIZE* the cost function using an optimizer.
+        args : tuple, optional
+            A tuple of additional arguments to be fed into the cost function, fun( circuit, parameters, ssdm). IF NEEDED.
+            These arguments come *AFTER* the required three arguments as detailed above. Tuple must be correclty ordered. 
+            The default is None.
+    
+        Returns
+        -------
+        burn_in_params : list
+            Returns the list of optimized parameters for the bond circuit
+            Same format as self.bond_params
+    
+        """
+        ### The lines below are apparently a useful trick to mask optional args of cost function so it's easier to reference as fun(a,b) in the future
+        if args is not None:
+            fun = lambda  bond_params, bond_circ, ssdm, fun=fun: fun(bond_params, bond_circ, ssdm, *args)
+        ### now fun is a three-argument function of some circuit (acting on the bond space) and some steady state density matrix.
         
-    ### good_circ = circuit with ideal parameters
+        ### use some optimizer to minimize fun by varying parameters of circ
+            
+        ### OPTIMIZATION
+        burn_in_params = minimize(fun, self.bond_prep_params, args=(self.bond_prep_circ,steady_state),method='BFGS')
         
-    return good_circ
+        return burn_in_params
         
     
     
