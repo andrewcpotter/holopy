@@ -378,7 +378,7 @@ class IsoMPS(IsoNetwork):
     
     
     # @property ##if we want the method to create new class attributes dynamically when needed? seems unnecessary.
-    def BondSteadyState(self, probs = [], num_eigs = 0, debug = False):
+    def get_bond_steady_state(self, num_eigs = 0, debug = False):
         """
     
         Parameters
@@ -524,7 +524,7 @@ class IsoMPS(IsoNetwork):
         ### the method then adds/sets the class properties lambdas, [bond_]density_matrices
         return (lambdas, density_matrices)
     
-    def Set_Burn_In_Params(self, steady_state, fun=basic_cost_function, args = None):
+    def set_burn_in_params(self, steady_state, fun=basic_cost_function, args = None):
         """
         
     
