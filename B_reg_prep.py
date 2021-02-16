@@ -14,10 +14,32 @@ from scipy.sparse import linalg as lin
 
 
 
-#### I have written this in a way that it can easily be changed into part of the IsoMPS class or thermal equivalent.
+#### TO DO: add this to the IsoMPS class in networks.py
+#### TO DO: include this in the equivalent class for thermal states. 
+#### NOTE: for thermal states, the information about the initial states should be included in the "tensors" method for convenience / modularity.
 
-
+########## NEW CLASS FUNCTION:
     def BondSteadyState(self, probs = [], num_eigs = 0):
+        """
+    
+        Parameters
+        ----------
+        probs : list, optional
+            DESCRIPTION: The default is [], an empty list.
+            NOTE: this argument should be eliminated in favor of modifying the IsoMPS.tensors() method
+        num_eigs : int, optional
+            DESCRIPTION: The default is 0, and the method will find all eigenvalues/eigenmodes of the transfer matrix using full diagonalization. 
+            For num_eigs = k with 0 < k < chi^2 - 1, the method will find the largest k eigenvalues using sparse methods.
+
+        Returns
+        -------
+        density_matrices : list of ndarrays
+            DESCRIPTION: A list of chi by chi density matrices for the bond state that are eigenmodes of the transfer matrix, in order of descending eigenvalue.
+            The first entry corresponds to the steady state.
+        lambdas : list
+            DESCRIPTION: a list of eigenvalues of the transfer matrix in descending order. The first entry should be 1.
+
+        """
         ### NOTE: probs is for the thermal case; ideally, this should be built into the "tensors" method itself
         
         ### num_eigs = 0 will compute ALL eigenvalues of transfer matrix. Seems reasonable for the bond sizes we're dealing with.
