@@ -63,7 +63,17 @@ class IsoMPS(IsoNetwork):
             self.L = kwargs['L']
         else:
             self.L=1 
+        #whether to prepare the state as a thermal distribution
         
+        if 'thermal' in kwargs.keys():
+            self.thermal = kwargs['thermal']
+            if 'thermal_prob' in kwargs.keys(): # this should be a prob. list in shape of l*l_uc*n_phys
+                self.thermal_prob = kwargs['thermal_prob']
+            else: raise ValueError('thermal state requires probability distribution')
+        else:
+            self.thermal = False
+            self.thermal_prob =[[0 for i in range(self.l_uc)] for j in range(self.L)] 
+
         if self.circuit_format == 'qiskit':
             # setup classical registers for measurement outcomes
             self.cregs = [[qk.ClassicalRegister(len(preg)) for i in range(self.l_uc)] for j in range(self.L)]                          
@@ -80,7 +90,7 @@ class IsoMPS(IsoNetwork):
                     self.FH = kwargs['FH']
                 else:
                     self.FH = False
-                self.measurement_circuit = self.measurement(kwargs['bases'], self.FH, preg)
+                self.measurement_circuit = self.measurement(kwargs['bases'], preg, self.FH)
             else:
                 self.measurement_circuit = [[qk.QuantumCircuit() for i in range(self.l_uc)]for j in range(self.L)]
                 
@@ -93,7 +103,9 @@ class IsoMPS(IsoNetwork):
                                                pcircs[y],
                                                meas_list=[(preg,
                                                            self.cregs[x][y],
-                                                           self.measurement_circuit[x][y])])
+                                                            self.measurement_circuit[x][y])],
+                                            thermal=self.thermal, 
+                                    thermal_prob=self.thermal_prob[x][y])
                           for y in range(self.l_uc)]
                          for x in range(self.L)]
             
@@ -192,7 +204,11 @@ class IsoMPS(IsoNetwork):
         outputs:
             tenpy MPS object created from cirq description
         """
-        site = tenpy.networks.site.SpinHalfSite(conserve=None)
+        if self.nphys == 1:
+            site = tenpy.networks.site.SpinHalfSite(conserve = None)
+        elif self.nphys == 2:
+            site = tenpy.networks.site.SpinHalfFermionSite(cons_N=None, cons_Sz=None, filling=1.0)
+
         if (L==np.inf) and (self.l_uc==1) and (self.nphys==1):
             B = np.swapaxes(self.tensors(params)[0],1,2)
             psi = tenpy.networks.mps.MPS.from_Bflat([site], 
@@ -200,14 +216,18 @@ class IsoMPS(IsoNetwork):
                                                 bc='infinite', 
                                                 dtype=complex, 
                                                 form=None)
-        # elif (L==np.inf):
-        #     B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)[0]]
-        #     psi = tenpy.networks.mps.MPS.from_Bflat([site]*self.l_uc,
-        #                                             B_arrs, 
-        #                                             bc = 'infinite', 
-        #                                             dtype=complex, 
-        #                                             form=None)  
-        else:
+        
+        elif (L == np.inf) and (self.l_uc != 1) and (self.nphys == 1):            
+             B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)]
+             psi = tenpy.networks.mps.MPS.from_Bflat([site]*self.l_uc,
+                                                     B_arrs, 
+                                                     bc = 'infinite',
+                                                     dtype=complex, 
+                                                     form=None) 
+        
+        elif (L != np.inf) and (self.nphys == 1):
+            if L != self.l_uc * self.L:
+                raise ValueErrorError('MPS must have the same length as IsoMPS object')
             B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)]
             B_arrs[0] = B_arrs[0][:,0:1,:]
             B_arrs[-1] = B_arrs[-1][:,:,0:1]
