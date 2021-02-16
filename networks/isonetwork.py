@@ -77,7 +77,9 @@ class IsoTensor(object):
                  pcirc, # parameterized circuit object
                  #param_names, # list of circuit parameter names (str's)
                  meas_list=[], # list of tuples: (qreg, creg, measurement circuit)
-                 circuit_format:str='qiskit' # string specifying circuit type
+                 circuit_format:str='qiskit', # string specifying circuit type
+                 thermal = False,
+                 thermal_prob = 0 #the chance of flipping a physical site
                  ):
         self.name=name
         self.qregs=qregs
@@ -87,6 +89,8 @@ class IsoTensor(object):
 #        self.param_names=param_names
         self.circuit_format=circuit_format
         self.meas_list=meas_list
+        self.p =thermal_prob
+        self.thermal = thermal
         
     def __str__(self):
         return self.name
@@ -99,25 +103,39 @@ class IsoTensor(object):
         """
         resolves parameters in circuit
         inputs:
-            params: dictionary of {parameter: values}
+            params: dictionary of parameter names and values
             include_measurements, bool, whether or not to include measurement and reset
         outputs:
             resolved circuit
         """
         if self.circuit_format == 'qiskit':
-            cres = self.circ.bind_parameters(params) # resolved circuit
-            if include_measurements: # add measurements 
+            cres = self.circ.bind_parameters(params)
+            if include_measurements:
                 for qreg,creg,mcirc in self.meas_list:
-                    # add the classical registers to hold measurements
                     cres = cres.combine(mcirc) 
                     cres.add_register(creg)
                     # add the measurement circuit
                     cres.measure(qreg,creg)
                     cres.reset(qreg)
+            if self.thermal: #do a pre-measurement circuit to flip a site to |1> with prob. p
+                pre_cir = qk.QuantumCircuit()
+                for reg in self.qregs: pre_cir.add_register(reg)
+                if include_measurements:
+                    for qreg,creg,mcirc in self.meas_list:
+                        pre_cir.add_register(creg)
+                cdict = {}
+                for i in range(len(qregs)):#need to match register to combine
+                    cdict['c_pre'+str(i)] = qk.ClassicalRegister(1,'c_pre'+str(i))
+                    cres.add_register(cdict['c_pre'+str(i)])
+                    pre_cir.add_register(cdict['c_pre'+str(i)])
+                    pre_cir.rx(2*np.arcsin(np.sqrt(self.p[i])),self.qregs[0][i])
+                    pre_cir.measure(self.qregs[0][i],cdict['c_pre'+str(i)])
+                    pre_cir.reset(self.qregs[0][i])
+                    pre_cir.x(self.qregs[0][i]).c_if(cdict['c_pre'+str(i)], 0)
+                cres = pre_cir.combine(cres) 
             return cres
         else:
-            raise NotImplementedError()
-        
+            raise NotImplementedError()        
     def bind_params(self,params):
         """
         inputs:
