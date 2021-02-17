@@ -75,7 +75,27 @@ def add_su4_circ(circ,q1,q2,params):
     circ.rx(params[11],q2)
     circ.rz(params[12],q2)
     circ.rx(params[13],q2)
+
+def add_xx_circ(circ,q1,q2,params):
+    """
+    inputs:
+        - q1,2 qubits
+        - params, qiskit ParameterVector object or list of qk Parameters
+    returns: 
+        - QKParamCircuit object
+    """
     
+    # two qubit gates
+    # xx+yy-rotation
+    circ.rx(np.pi/2,q1)
+    circ.ry(np.pi/2,q2)
+    circ.cz(q1,q2)
+    circ.rx(-params[0],q1)
+    circ.ry(params[0],q2)
+    circ.cz(q1,q2)
+    circ.rx(-np.pi/2,q1)
+    circ.ry(-np.pi/2,q2)
+
 def add_xxz_circ(circ,q1,q2,params):
     """
     inputs:
@@ -86,18 +106,15 @@ def add_xxz_circ(circ,q1,q2,params):
     """
     
     # two qubit gates
-    # xx-rotation
-    [circ.h(q) for q in [q1,q2]]
-    circ.cx(q1,q2)
-    circ.rz(params[0],q2)
-    circ.cx(q1,q2)
-    [circ.h(q) for q in [q1,q2]]
-    # yy-rotation
-    [circ.rx(np.pi/2,q) for q in [q1,q2]]
-    circ.cx(q1,q2)
-    circ.rz(params[0],q2)
-    circ.cx(q1,q2)
-    [circ.rx(-np.pi/2,q) for q in [q1,q2]]
+    # xx+yy-rotation
+    circ.rx(np.pi/2,q1)
+    circ.ry(np.pi/2,q2)
+    circ.cz(q1,q2)
+    circ.rx(-params[0],q1)
+    circ.ry(params[0],q2)
+    circ.cz(q1,q2)
+    circ.rx(-np.pi/2,q1)
+    circ.ry(-np.pi/2,q2)
     # zz-rotation
     circ.cx(q1,q2)
     circ.rz(params[1],q2)
