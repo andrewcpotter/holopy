@@ -321,8 +321,8 @@ class IsoMPS(IsoNetwork):
                                 qc.h(preg[i])
                         if base == 'y':
                             for i in range(len(preg)):    
-                                qc.h(preg[i])
-                                qc.sdg(preg[i])
+                                qc.rx(-np.pi/2,preg[i])
+                                #qc.sdg(preg[i])
                         mc_uc.append(qc)
                     mc_total.append(mc_uc)
             else:
