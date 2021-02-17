@@ -236,7 +236,7 @@ class IsoMPS(IsoNetwork):
         
         elif (L != np.inf) and (self.nphys == 1):
             if L != self.l_uc * self.L:
-                raise ValueErrorError('MPS must have the same length as IsoMPS object')
+                raise ValueError('MPS must have the same length as IsoMPS object')
             B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)]
             B_arrs[0] = B_arrs[0][:,0:1,:]
             B_arrs[-1] = B_arrs[-1][:,:,0:1]
