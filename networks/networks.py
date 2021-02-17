@@ -141,7 +141,8 @@ class IsoMPS(IsoNetwork):
             # extract list of all parameters
             self.param_list = []
             for v in self.param_assignments.values():
-                self.param_list += v
+                if v not in self.param_list: # avoid duplicates
+                    self.param_list += v
             self.n_params = len(self.param_list) # number of parameters
             
             # topologically sort nodes in order of execution
