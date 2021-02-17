@@ -13,6 +13,22 @@ import qiskit as qk
 from networks.isonetwork import QKParamCircuit
 
 #%% Two-qubit circuits
+def add_1q_circ(circ,q,params):
+    """
+    general 1 qubit gate
+    inputs:
+        - q1,2 qubits
+        - params, qiskit ParameterVector object or list of qk Parameters
+    returns: 
+        - QKParamCircuit object
+    """
+    
+    # 1q gates
+    # physical qubit
+    circ.rx(params[0],q)
+    circ.rz(params[1],q)
+    circ.rx(params[2],q)
+
 def add_su4_circ(circ,q1,q2,params):
     """
     inputs:
@@ -60,8 +76,34 @@ def add_su4_circ(circ,q1,q2,params):
     circ.rz(params[12],q2)
     circ.rx(params[13],q2)
     
-
 def add_xxz_circ(circ,q1,q2,params):
+    """
+    inputs:
+        - q1,2 qubits
+        - params, qiskit ParameterVector object or list of qk Parameters
+    returns: 
+        - QKParamCircuit object
+    """
+    
+    # two qubit gates
+    # xx-rotation
+    [circ.h(q) for q in [q1,q2]]
+    circ.cx(q1,q2)
+    circ.rz(params[0],q2)
+    circ.cx(q1,q2)
+    [circ.h(q) for q in [q1,q2]]
+    # yy-rotation
+    [circ.rx(np.pi/2,q) for q in [q1,q2]]
+    circ.cx(q1,q2)
+    circ.rz(params[0],q2)
+    circ.cx(q1,q2)
+    [circ.rx(-np.pi/2,q) for q in [q1,q2]]
+    # zz-rotation
+    circ.cx(q1,q2)
+    circ.rz(params[1],q2)
+    circ.cx(q1,q2)
+
+def add_xyz_circ(circ,q1,q2,params):
     """
     inputs:
         - q1,2 qubits
