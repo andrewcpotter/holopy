@@ -163,7 +163,11 @@ class IsoMPS(IsoNetwork):
             bdry_vec, unitary correspond to boundary
             ulist, list of unitaries for tensors in unit cell
         """
-        bvec_l = self.bdry_tensor.unitary(params)[:,0] # boundary circuit tensor 
+        # extract parameters just for boundary vector circuit
+        bdry_param_keys = self.param_assignments[self.bdry_tensor]
+        bdry_param_vals = [params[k] for k in bdry_param_keys]
+        bdry_param_dict = dict(zip(bdry_param_keys,bdry_param_vals))
+        bvec_l = self.bdry_tensor.unitary(bdry_param_dict)[:,0] # boundary circuit tensor 
         return bvec_l
     
     def unitaries(self,params):
