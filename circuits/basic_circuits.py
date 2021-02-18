@@ -44,37 +44,37 @@ def add_su4_circ(circ,q1,q2,params):
     circ.rz(params[1],q1)
     circ.rx(params[2],q1)
     # bond qubit
-    circ.rx(params[2],q2)
-    circ.rz(params[3],q2)
-    circ.rx(params[4],q2)
+    circ.rx(params[3],q2)
+    circ.rz(params[4],q2)
+    circ.rx(params[5],q2)
     
     # two qubit gates
     # xx-rotation
     [circ.h(q) for q in [q1,q2]]
     circ.cx(q1,q2)
-    circ.rz(params[5],q2)
+    circ.rz(params[6],q2)
     circ.cx(q1,q2)
     [circ.h(q) for q in [q1,q2]]
     # yy-rotation
     [circ.rx(np.pi/2,q) for q in [q1,q2]]
     circ.cx(q1,q2)
-    circ.rz(params[6],q2)
+    circ.rz(params[7],q2)
     circ.cx(q1,q2)
     [circ.rx(-np.pi/2,q) for q in [q1,q2]]
     # zz-rotation
     circ.cx(q1,q2)
-    circ.rz(params[7],q2)
+    circ.rz(params[8],q2)
     circ.cx(q1,q2)
     
     # 1q gates
     # physical qubit
-    circ.rx(params[8],q1)
-    circ.rz(params[9],q1)
-    circ.rx(params[10],q1)
+    circ.rx(params[9],q1)
+    circ.rz(params[10],q1)
+    circ.rx(params[11],q1)
     # bond qubit
-    circ.rx(params[11],q2)
-    circ.rz(params[12],q2)
-    circ.rx(params[13],q2)
+    circ.rx(params[12],q2)
+    circ.rz(params[13],q2)
+    circ.rx(params[14],q2)
 
 def add_xx_circ(circ,q1,q2,params):
     """
