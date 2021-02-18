@@ -253,7 +253,7 @@ class IsoMPS(IsoNetwork):
         psi.convert_form(psi.form)
         return psi    
     
-    def as_mps(self,params,L=1,include_left_bdry=True):
+    def as_mps(self,params,L=1,include_left_bdry=False):
         """
         converts to custom MPS class object
         inputs:
@@ -271,7 +271,7 @@ class IsoMPS(IsoNetwork):
             state = mps.MPS(tensors,L=L,bdry_vecs=[None,None], rcf = True)
         return state
     
-    def as_mpo(self,params):
+    def as_mpo(self,params,include_left_bdry=False,L=1):
         """
         converts to custom MPO class object
         inputs:
@@ -279,10 +279,21 @@ class IsoMPS(IsoNetwork):
         outputs:
             custom MPS object created from cirq description
         """
-        tensors = self.compute_unitaries(params)
-        bvecl = self.compute_left_bdry_vector(params)
-        op = mps.MPO(tensors,L=self.L,bdry_vecs=[bvecl,None], rcf = True)
+        tensors = self.unitaries(params)
+        if include_left_bdry:
+            bvecl = self.compute_left_bdry_vector(params)
+            op = mps.MPO(tensors,L=self.L,bdry_vecs=[bvecl,None])
+        else:
+            op = mps.MPO(tensors,L=self.L,bdry_vecs=[None,None])
         return op
+    
+    def as_mpdo(self,params,thermal_probs,include_left_bdry=False,L=1):
+        """
+        thermal probs: list of should be for unit cell only
+        """
+        
+        
+        raise NotImplemented('mpdo not implemented')
         
     ##  correlation function sampling ##
     def measurement(self, bases, preg, FH=False):
