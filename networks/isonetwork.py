@@ -31,14 +31,16 @@ class ParamCircuit(object):
         self.param_names = param_names
         
     def bind_parameters(self,params):
-        raise NotImplementedError()
+        self.circ.bind_parameters(params)
+        return self.circ
     
-    def bind_from_array(self,param_vals):
-        """
-        input: param_vals, np.array of values, must be same length as self.param_names
-        """
-        params = dict(zip(self.param_names,param_vals))
-        return self.bind_from_array(params)
+    
+    # def bind_from_array(self,param_vals):
+    #     """
+    #     input: param_vals, np.array of values, must be same length as self.param_names
+    #     """
+    #     params = dict(zip(self.param_names,param_vals))
+    #     return self.bind_from_array(params)
 
     
 class QKParamCircuit(ParamCircuit):
@@ -50,15 +52,32 @@ class QKParamCircuit(ParamCircuit):
         self.param_names = param_names
         self.circuit_format='qiskit'
     
-    def bind_from_array(self,params):
+    def bind_parameters(self,params):
+        cres = self.circ.bind_parameters(params)
+        return cres
+        
+    def unitary(self,params):
         """
-        sets named parameters to particular values
-        input:
-            params: dictionary {parameter name: numerical value}
-        output:
-            circuit with parameters resolved
+        input: params = dictionary of  qiskit circuit parameters
+        output: returns unitary for circuit
         """
-        return self.circ.bind_parameters(params)
+        bound_circ = self.bind_parameters(params)
+        simulator = qk.Aer.get_backend('unitary_simulator')
+        result = qk.execute(bound_circ,simulator).result()
+        u = result.get_unitary(bound_circ) 
+        
+        return u
+    
+    # def bind_from_array(self,params):
+    #     """
+    #     sets named parameters to particular values
+    #     input:
+    #         params: dictionary {parameter name: numerical value}
+    #     output:
+    #         circuit with parameters resolved
+    #     """
+    #     return self.circ.bind_parameters(params)
+    
     
         
             

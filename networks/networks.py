@@ -253,7 +253,7 @@ class IsoMPS(IsoNetwork):
         psi.convert_form(psi.form)
         return psi    
     
-    def as_mps(self,params,L=1):
+    def as_mps(self,params,L=1,include_left_bdry=True):
         """
         converts to custom MPS class object
         inputs:
@@ -264,8 +264,11 @@ class IsoMPS(IsoNetwork):
             custom MPS object created from cirq description
         """
         tensors = self.tensors(params)
-        bvecl = self.left_bdry_vector(params)
-        state = mps.MPS(tensors,L=L,bdry_vecs=[bvecl,None], rcf = True)
+        if include_left_bdry:
+            bvecl = self.left_bdry_vector(params)
+            state = mps.MPS(tensors,L=L,bdry_vecs=[bvecl,None], rcf = True)
+        else:
+            state = mps.MPS(tensors,L=L,bdry_vecs=[None,None], rcf = True)
         return state
     
     def as_mpo(self,params):
