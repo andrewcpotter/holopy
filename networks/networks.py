@@ -65,6 +65,11 @@ class IsoMPS(IsoNetwork):
             self.L=1 
         #whether to prepare the state as a thermal distribution
         
+        if 'name' in kwargs.keys():
+            self.name = kwars['name']
+        else:
+            self.name = ''
+        
         if 'thermal' in kwargs.keys():
             self.thermal = kwargs['thermal']
             if 'thermal_prob' in kwargs.keys(): # this should be a prob. list in shape of l*l_uc*n_phys
@@ -76,7 +81,7 @@ class IsoMPS(IsoNetwork):
 
         if self.circuit_format == 'qiskit':
             # setup classical registers for measurement outcomes
-            self.cregs = [[qk.ClassicalRegister(len(preg)) for i in range(self.l_uc)] for j in range(self.L)]                          
+            self.cregs = [[qk.ClassicalRegister(len(preg),name='c'+self.name+str(i)) for i in range(self.l_uc)] for j in range(self.L)]                          
                              
             self.nphys = len(preg) # number of physical qubits
             self.nbond = len(breg) # number of bond qubits
