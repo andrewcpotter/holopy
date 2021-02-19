@@ -295,14 +295,17 @@ class IsoMPS(IsoNetwork):
         psi_mpo = self.as_mpo(params) # psi_mps as custom mps object
         Ws = [] # tensors for mpdo
         for x in range(self.l_uc):
-            # apply the weights
+            # thermal probabilities
             weights = np.array([thermal_probs[x],1-thermal_probs[x]])
-            A_wt = np.einsum('ijkl,i->ijkl',psi_mpo.tensors[x],weights)
-            Ws += [np.einsum('ijkl,kqrs->ijqrls',A_wt,psi_mpo.tensors[x].conj())\
-                   .reshape(2**self.nphys,
-                            2**(2*self.nbond),
-                            2**self.nphys,
-                            2**(2*self.nbond))]
+            A = psi_mpo.tensors[x] # site tensor (rank-4)
+            # contract into bond-transfer operator
+            W = np.einsum('abcd,c,cefg->abefdg',A,weights,A.conj()) 
+            # reshape into transfer-matrix and add to list
+            Ws += [W.reshape(2**(self.nphys),
+                             2**(2*self.nbond),
+                             2**(self.nphys),
+                            2**(2*self.nbond))] 
+
         # thermal state matrix product density operator
         mpdo = mps.MPO(Ws,L=np.inf,bdry_vecs=[None,None]) 
         return mpdo
