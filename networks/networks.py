@@ -81,7 +81,7 @@ class IsoMPS(IsoNetwork):
 
         if self.circuit_format == 'qiskit':
             # setup classical registers for measurement outcomes
-            self.cregs = [[qk.ClassicalRegister(len(preg),name='c'+self.name+str(i)) for i in range(self.l_uc)] for j in range(self.L)]                                                  
+            self.cregs = [[qk.ClassicalRegister(len(preg),name='c'+self.name+str(i)+'L'+str(j)) for i in range(self.l_uc)] for j in range(self.L)]                                                  
             self.nphys = len(preg) # number of physical qubits
             self.nbond = len(breg) # number of bond qubits
             self.qregs = [preg,breg]
