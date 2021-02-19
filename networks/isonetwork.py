@@ -147,7 +147,7 @@ class IsoTensor(object):
                     cdict['c_pre'+str(i)] = qk.ClassicalRegister(1,'c_pre'+str(i))
                     cres.add_register(cdict['c_pre'+str(i)])
                     pre_cir.add_register(cdict['c_pre'+str(i)])
-                    pre_cir.rx(2*np.arcsin(np.sqrt(self.p[i])),self.qregs[0][i])
+                    pre_cir.rx(2*np.arcsin(np.sqrt(abs(self.p[i]))),self.qregs[0][i])
                     pre_cir.measure(self.qregs[0][i],cdict['c_pre'+str(i)])
                     pre_cir.reset(self.qregs[0][i])
                     pre_cir.x(self.qregs[0][i]).c_if(cdict['c_pre'+str(i)], 1)
