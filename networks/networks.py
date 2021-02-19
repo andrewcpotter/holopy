@@ -297,9 +297,9 @@ class IsoMPS(IsoNetwork):
         for x in range(self.l_uc):
             # thermal probabilities
             weights = np.array([thermal_probs[x],1-thermal_probs[x]])
-            A = psi_mpo.tensors[x] # site tensor (rank-4)
+            A = psi_mpo.tensors[x].copy() # site tensor (rank-4)
             # contract into bond-transfer operator
-            W = np.einsum('abcd,c,cefg->abefdg',A,weights,A.conj()) 
+            W = np.einsum('sirj,r,ukrl->sikujl',A.conj(),weights,A) 
             # reshape into transfer-matrix and add to list
             Ws += [W.reshape(2**(self.nphys),
                              2**(2*self.nbond),
