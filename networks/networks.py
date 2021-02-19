@@ -253,7 +253,7 @@ class IsoMPS(IsoNetwork):
         psi.convert_form(psi.form)
         return psi    
     
-    def as_mps(self,params,L=1,include_left_bdry=False):
+    def as_mps(self,params,include_left_bdry=False):
         """
         converts to custom MPS class object
         inputs:
@@ -261,14 +261,15 @@ class IsoMPS(IsoNetwork):
             L, int, number of repetitions of unit cell, 
                 set to np.inf for iMPS
         outputs:
-            custom MPS object created from cirq description
+            custom MPS object created from circuit unitaries
+            mps length is equal to l_uc
         """
         tensors = self.tensors(params)
         if include_left_bdry:
             bvecl = self.left_bdry_vector(params)
-            state = mps.MPS(tensors,L=L,bdry_vecs=[bvecl,None], rcf = True)
+            state = mps.MPS(tensors,L=self.l_uc,bdry_vecs=[bvecl,None], rcf = True)
         else:
-            state = mps.MPS(tensors,L=L,bdry_vecs=[None,None], rcf = True)
+            state = mps.MPS(tensors,L=self.l_uc,bdry_vecs=[None,None], rcf = True)
         return state
     
     def as_mpo(self,params,include_left_bdry=False,L=1):
@@ -291,9 +292,21 @@ class IsoMPS(IsoNetwork):
         """
         thermal probs: list of should be for unit cell only
         """
-        
-        
-        raise NotImplemented('mpdo not implemented')
+        psi_mpo = self.as_mpo(params) # psi_mps as custom mps object
+        Ws = [] # tensors for mpdo
+        for x in range(self.l_uc):
+            # apply the weights
+            weights = np.array([thermal_probs[x],1-thermal_probs[x]])
+            A_wt = np.einsum('ijkl,i->ijkl',psi_mpo.tensors[x],weights)
+            Ws += [np.einsum('ijkl,kqrs->ijqrls',A_wt,psi_mpo.tensors[x].conj())\
+                   .reshape(2**self.nphys,
+                            2**(2*self.nbond),
+                            2**self.nphys,
+                            2**(2*self.nbond))]
+        # thermal state matrix product density operator
+        mpdo = mps.MPO(Ws,L=np.inf,bdry_vecs=[None,None]) 
+        return mpdo
+    
         
     ##  correlation function sampling ##
     def measurement(self, bases, preg, FH=False):
