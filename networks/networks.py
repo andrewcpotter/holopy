@@ -81,7 +81,7 @@ class IsoMPS(IsoNetwork):
 
         if self.circuit_format == 'qiskit':
             # setup classical registers for measurement outcomes
-            self.cregs = [[qk.ClassicalRegister(len(preg),name='c'+self.name+str(i)+'L'+str(j)) for i in range(self.l_uc)] for j in range(self.L)]                                                  
+            self.cregs = [qk.ClassicalRegister(len(preg)*self.L,name='c'+self.name+'Site'+str(i)) for i in range(self.l_uc)]                                        
             self.nphys = len(preg) # number of physical qubits
             self.nbond = len(breg) # number of bond qubits
             self.qregs = [preg,breg]
@@ -106,13 +106,13 @@ class IsoMPS(IsoNetwork):
                                                [preg,breg],
                                                pcircs[y],
                                                meas_list=[(preg,
-                                                           self.cregs[x][y],
-                                                            self.measurement_circuit[x][y])],
+                                                           self.cregs[y],
+                                                            self.measurement_circuit[x][y],
+                                                          self.cregs[y][x*self.nphys:(x+1)*self.nphys])],
                                             thermal=self.thermal, 
                                     thermal_prob=self.thermal_prob[x][y])
                           for y in range(self.l_uc)]
-                         for x in range(self.L)]
-            
+                         for x in range(self.L)]            
             # setup IsoNetwork
             # make a flat list of nodes
             self.nodes = [self.bdry_tensor]
