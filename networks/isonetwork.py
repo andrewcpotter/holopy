@@ -130,12 +130,13 @@ class IsoTensor(object):
         if self.circuit_format == 'qiskit':
             cres = self.circ.bind_parameters(params)
             if include_measurements:
-                for qreg,creg,mcirc in self.meas_list:
+                for qreg,creg,mcirc,cbits in self.meas_list:
                     cres = cres.combine(mcirc) 
                     cres.add_register(creg)
                     # add the measurement circuit
-                    cres.measure(qreg,creg)
+                    cres.measure(qreg,cbits)
                     cres.reset(qreg)
+                    
             if self.thermal: #do a pre-measurement circuit to flip a site to |1> with prob. p
                 pre_cir = qk.QuantumCircuit()
                 for reg in self.qregs: pre_cir.add_register(reg)
