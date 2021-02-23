@@ -267,11 +267,7 @@ class IsoMPS(IsoNetwork):
             custom MPS object created from circuit unitaries
             mps length is equal to l_uc
         """
-        #tensors = self.tensors(params)
-        # note: the index reordering is b.c. the
-        # bond indices in opposite order from unitaries 
-        # (circuit notation is backwards from matrix-multiplication)
-        tensors = [np.swapaxes(tensor,1,2) for tensor in self.unitaries(params)]
+        tensors = self.tensors(params)
         if include_left_bdry:
             bvecl = self.left_bdry_vector(params)
             state = mps.MPS(tensors,L=self.l_uc,bdry_vecs=[bvecl,None], rcf = True)
@@ -287,7 +283,7 @@ class IsoMPS(IsoNetwork):
         outputs:
             custom MPS object created from cirq description
         """
-        #tensors = self.unitaries(params)
+        tensors = self.unitaries(params)
         # Note: bond index ordering rearranged in going from unitaries => tensors
         tensors = [np.swapaxes(tensor,1,3) for tensor in self.unitaries(params)]
         if include_left_bdry:
