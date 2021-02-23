@@ -267,7 +267,11 @@ class IsoMPS(IsoNetwork):
             custom MPS object created from circuit unitaries
             mps length is equal to l_uc
         """
-        tensors = self.tensors(params)
+        #tensors = self.tensors(params)
+        # note: the index reordering is b.c. the
+        # bond indices in opposite order from unitaries 
+        # (circuit notation is backwards from matrix-multiplication)
+        tensors = [np.swapaxes(tensor,1,2) for tensor in self.unitaries(params)]
         if include_left_bdry:
             bvecl = self.left_bdry_vector(params)
             state = mps.MPS(tensors,L=self.l_uc,bdry_vecs=[bvecl,None], rcf = True)
@@ -283,7 +287,9 @@ class IsoMPS(IsoNetwork):
         outputs:
             custom MPS object created from cirq description
         """
-        tensors = self.unitaries(params)
+        #tensors = self.unitaries(params)
+        # Note: bond index ordering rearranged in going from unitaries => tensors
+        tensors = [np.swapaxes(tensor,1,3) for tensor in self.unitaries(params)]
         if include_left_bdry:
             bvecl = self.compute_left_bdry_vector(params)
             op = mps.MPO(tensors,L=self.L,bdry_vecs=[bvecl,None])
@@ -294,6 +300,8 @@ class IsoMPS(IsoNetwork):
     def as_mpdo(self,params,thermal_probs,include_left_bdry=False,L=1):
         """
         thermal probs: list of should be for unit cell only
+        WARNING: CURRENT IMPLEMENTATION ONLY WORKS FOR NPHYS=1 (SPIN-CHAINS)
+        NEED TO GENERALIZE PROBABILITIES TO >2 VALUES
         """
         psi_mpo = self.as_mpo(params) # psi_mps as custom mps object
         Ws = [] # tensors for mpdo
