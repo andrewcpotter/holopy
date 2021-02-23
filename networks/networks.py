@@ -364,20 +364,20 @@ class IsoMPS(IsoNetwork):
                     mc_total.append(mc_uc)
             else:
                 # now bases is a string with total length L * l_uc * len(preg)
-                # explicitly list the pauli string for each site (already consider the JW-string outside)
+                # explicitly write the pauli string for each site (already consider the JW-string outside)
                 for k in range(self.L):
                     mc1 = []
                     for j in range(self.l_uc):
                         qc = qk.QuantumCircuit()
                         for reg in self.qregs: qc.add_register(reg)
+                        # loop over all the qubit in a preg
                         for i in range(len(preg)):
-                            # extract pauli basis for a single qubit from the string
+                            # for each qubit extract pauli basis for a single qubit from the string
                             base = bases[k * self.l_uc + j * len(preg) + i]
                             if base == 'x':
                                 qc.h(preg[i])
                             elif base == 'y':
-                                qc.h(preg[i])
-                                qc.sdg(preg[i])
+                                qc.rx(-np.pi/2,preg[i])
                         mc1.append(qc)
                     mc_total.append(mc1)     
             return mc_total
