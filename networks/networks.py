@@ -50,6 +50,7 @@ class IsoMPS(IsoNetwork):
         """
 
         self.l_uc = len(pcircs) # length of unit cell
+        self.pcircs = pcircs
 
 #        self.n_params = len(param_names)
         
@@ -86,9 +87,9 @@ class IsoMPS(IsoNetwork):
             self.nbond = len(breg) # number of bond qubits
             self.qregs = [preg,breg]
             if 'boundary_circuit' in kwargs.keys():
-                bdry_circ = kwargs['boundary_circuit']
+                self.bdry_circ = kwargs['boundary_circuit']
             else:
-                bdry_circ = QKParamCircuit(qk.QuantumCircuit(), []) 
+                self.bdry_circ = QKParamCircuit(qk.QuantumCircuit(), []) 
             if 'bases' in kwargs.keys():
                 if 'FH' in kwargs.keys():
                     self.FH = kwargs['FH']
@@ -101,7 +102,7 @@ class IsoMPS(IsoNetwork):
             # make the MPS/tensor-train -- same qubits used by each tensor
             self.bdry_tensor = IsoTensor('v_L',
                                          [breg],
-                                         bdry_circ)
+                                         self.bdry_circ)
             self.sites= [[IsoTensor('A'+str(x)+str(y),
                                                [preg,breg],
                                                pcircs[y],
@@ -112,49 +113,103 @@ class IsoMPS(IsoNetwork):
                                             thermal=self.thermal, 
                                     thermal_prob=self.thermal_prob[x][y])
                           for y in range(self.l_uc)]
-                         for x in range(self.L)]                        # setup IsoNetwork
+                         for x in range(self.L)]            
+            # setup IsoNetwork
             # make a flat list of nodes
-            self.nodes = [self.bdry_tensor]
-            for x in range(self.L): self.nodes += self.sites[x]
-            
-            self.edges = [(self.nodes[i],self.nodes[i+1],{'qreg':breg}) for i in range(len(self.nodes)-1)]
-            
-            
-            # construct graph and check that is a DAG
-            # check for repeated node names
-            self.graph = nx.DiGraph()
-            self.graph.add_nodes_from(self.nodes)
-            self.graph.add_edges_from(self.edges)        
-    
-            # check that graph is directed & acyclic (DAG)
-            if nx.algorithms.dag.is_directed_acyclic_graph(self.graph) != True:
-                raise RuntimeError('Graph must be directed and acyclic')
-                
-            # store node information    
-            # self.creg_dict = creg_dict
-            self.node_names = [node.name for node in self.nodes]
-            if len(self.node_names) != len(set(self.node_names)):
-                raise ValueError('Tensor nodes must have unique names')
-    
-            # store variational parameter info
-            self.param_assignments = {}
-            for node in self.nodes:
-                self.param_assignments[node]=node.param_names
-            
-            # extract list of all parameters
-            self.param_list = []
-            tmp_list = []
-            for v in self.param_assignments.values():
-                tmp_list += v
-            # prune duplicates
-            [self.param_list.append(item) for item in tmp_list if item not in self.param_list]
-            self.n_params = len(self.param_list) # number of parameters
-            
-            # topologically sort nodes in order of execution
-            self.sorted_nodes = [node for node in nx.topological_sort(self.graph)]
-
+            self.set_isonetwork_qiskit()
         else:
             raise NotImplementedError('only qiskit implemented')
+
+    
+    def set_isonetwork_qiskit(self):
+        preg,breg = self.qregs 
+        # make a flat list of nodes
+        self.nodes = [self.bdry_tensor]
+        for x in range(self.L): self.nodes += self.sites[x]
+        
+        self.edges = [(self.nodes[i],self.nodes[i+1],{'qreg':breg}) for i in range(len(self.nodes)-1)]            
+        
+        # construct graph and check that is a DAG
+        # check for repeated node names            
+        self.graph = nx.DiGraph()
+        self.graph.add_nodes_from(self.nodes)
+        self.graph.add_edges_from(self.edges)        
+
+        # check that graph is directed & acyclic (DAG)
+        if nx.algorithms.dag.is_directed_acyclic_graph(self.graph) != True:
+            raise RuntimeError('Graph must be directed and acyclic')
+            
+        # store node information    
+        # self.creg_dict = creg_dict
+        self.node_names = [node.name for node in self.nodes]
+        if len(self.node_names) != len(set(self.node_names)):
+            raise ValueError('Tensor nodes must have unique names')
+
+        # store variational parameter info
+        self.param_assignments = {}
+        for node in self.nodes:
+            self.param_assignments[node]=node.param_names
+        
+        # extract list of all parameters
+        self.param_list = []
+        tmp_list = []
+        for v in self.param_assignments.values():
+            tmp_list += v
+        # prune duplicates
+        [self.param_list.append(item) for item in tmp_list if item not in self.param_list]
+        self.n_params = len(self.param_list) # number of parameters
+        
+        # topologically sort nodes in order of execution
+        self.sorted_nodes = [node for node in nx.topological_sort(self.graph)]
+    
+    ##the function updates the measurement circuit
+    def update_basis(self, bases, FH = False):
+        preg,breg = self.qregs 
+        self.measurement_circuit = self.measurement(bases, preg, FH)
+                
+            # make the MPS/tensor-train -- same qubits used by each tensor
+        self.bdry_tensor = IsoTensor('v_L',
+                                     [breg],
+                                     self.bdry_circ)
+        self.sites= [[IsoTensor('A'+str(x)+str(y),
+                                           [preg,breg],
+                                           self.pcircs[y],
+                                           meas_list=[(preg,
+                                                       self.creg,
+                                                        self.measurement_circuit[x][y],
+                                                      self.creg[(x*self.l_uc+y)*self.nphys:(x*self.l_uc+y+1)*self.nphys])],
+                                        thermal=self.thermal, 
+                                thermal_prob=self.thermal_prob[x][y])
+                      for y in range(self.l_uc)]
+                     for x in range(self.L)]            
+        # setup IsoNetwork
+        # make a flat list of nodes
+        self.set_isonetwork_qiskit()
+        return self
+    #
+    def update_thermal_prob(self, p_list, thermal=False):
+        preg,breg = self.qregs 
+        self.thermal = thermal
+        self.thermal_prob = p_list       
+            # make the MPS/tensor-train -- same qubits used by each tensor
+        self.bdry_tensor = IsoTensor('v_L',
+                                     [breg],
+                                     self.bdry_circ)
+        self.sites= [[IsoTensor('A'+str(x)+str(y),
+                                           [preg,breg],
+                                           self.pcircs[y],
+                                           meas_list=[(preg,
+                                                       self.creg,
+                                                        self.measurement_circuit[x][y],
+                                                      self.creg[(x*self.l_uc+y)*self.nphys:(x*self.l_uc+y+1)*self.nphys])],
+                                        thermal=self.thermal, 
+                                thermal_prob=self.thermal_prob[x][y])
+                      for y in range(self.l_uc)]
+                     for x in range(self.L)]            
+        # setup IsoNetwork
+        # make a flat list of nodes
+        self.set_isonetwork_qiskit()
+        return self
             
     ## cpu simulation ##  
     def left_bdry_vector(self,params):
