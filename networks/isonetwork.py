@@ -141,7 +141,7 @@ class IsoTensor(object):
                 pre_cir = qk.QuantumCircuit()
                 for reg in self.qregs: pre_cir.add_register(reg)
                 if include_measurements:
-                    for qreg,creg,mcirc in self.meas_list:
+                    for qreg,creg,mcirc,cbits in self.meas_list:
                         pre_cir.add_register(creg)
                 cdict = {}
                 for i in range(len(self.qregs[0])):#need to match register to combine
