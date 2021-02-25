@@ -297,16 +297,14 @@ class IsoMPS(IsoNetwork):
                                                      form=None) 
         
         elif (L != np.inf) and (self.nphys == 1):
-            if L != self.l_uc * self.L:
-                raise ValueError('MPS must have the same length as IsoMPS object')
-            B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)]
+            B_arrs = [np.swapaxes(tensor,1,2) for tensor in self.tensors(params)] * L
             B_arrs[0] = B_arrs[0][:,0:1,:]
             B_arrs[-1] = B_arrs[-1][:,:,0:1]
-            psi = tenpy.networks.mps.MPS.from_Bflat([site]*L,
-                                                    B_arrs, 
+            psi = tenpy.networks.mps.MPS.from_Bflat([site] * L * self.l_uc,
+                                                    B_arrs,
                                                     bc = 'finite', 
                                                     dtype=complex, 
-                                                    form=None)    
+                                                    form=None)       
         psi.canonical_form()
         psi.convert_form(psi.form)
         return psi    
