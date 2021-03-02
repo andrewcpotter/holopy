@@ -286,12 +286,16 @@ class thermal_state(object):
         
         # contractions of density matrix: 
         contractions = []
-        for j in range(N):
+        for j in range(N): 
+            # includes both summation convention and tensor product notations
             # contracting the probability weights chain with state
             W1 = np.tensordot(p_matrix_chain[j],state[1][j],axes=[1,0]) 
+            # W1 = np.einsum('ij,jabc->iabc',p_matrix_chain[j],state[1][j])
             W2 = np.tensordot(state[1][j].conj(),W1,axes=[2,0]) 
+            # W2 = np.einsum('abcd,cjkl->abdjkl',state[1][j].conj(),W1)
             # changing index ordering to: p_out, b_out, p_in, b_in
             W3 = np.swapaxes(np.swapaxes(W2,2,4),2,3)
+            # W3 = np.einsum('abcdef->abdcef',np.einsum('abcdef->abedcf',W2))
             contractions.append(np.reshape(W3,[d,chi**2,d,chi**2]))
            
         # boundary contractions
@@ -396,13 +400,17 @@ class thermal_state(object):
             
             contraction_list = []
             for j in range(N):
-                # MPO and density matrix constractions
+                # includes both summation convention and tensor product notations
+                # MPO and density matrix contractions
                 tensor1 = np.tensordot(self[1][j],MPO[1][j],axes=[2,0])
+                # tensor1 = np.einsum('abcd,cijk->abdijk',self[1][j],MPO[1][j])
                 # changing index ordering to: p_out, b_out, p_in, b_in
                 tensor2 = np.swapaxes(np.swapaxes(tensor1,2,4),2,3)
+                # tensor2 = np.einsum('abcdef->abdcef',np.einsum('abcdef->abedcf',tensor1))
                 tensor3 = np.reshape(tensor2,[d_MPO,chi_tot,d_s,chi_tot])
                 # tracing over p_out and p_in
                 tensor4 = np.trace(tensor3,axis1=0,axis2=2)
+                # tensor4 = np.einsum('abad->bd',tensor3)
                 contraction_list.append(np.reshape(tensor4,[chi_tot,chi_tot]))
                 
         else:
