@@ -241,19 +241,20 @@ class thermal_state(object):
         # bond leg dimension (for all circuits in unit-cell)
         chi_list = [unitary[0,:,0,0].size for unitary in self]
         l_uc = len(self) # length of unit-cell
-        prob_params = params[:d * l_uc]
+        d_tot = sum(d_list) # total physical leg dimension * l_uc
+        prob_params = params[:d_tot]
         
         if T != 0: # checking temperature
             exc_list= [np.exp(-k/T) for k in prob_params] # list of boltzmann weights
             # grouping boltzmann weights for each site
-            group_list = [exc_list[j:j+d] for d,j in zip(d_list,range(0,len(exc_list),d))] 
+            group_list = [exc_list[j:j+d] for d,j in zip(d_list,range(0,len(exc_list)))] 
             z_list = [sum(j) for j in group_list] # list of partition functions 
             norm_list = []
             for j in range(len(group_list)): # normalizing weights
                 for k in group_list[j]:
                     norm_list.append(k/z_list[j])
             # final probs for unit-cell
-            prob_list = [norm_list[j:j+d] for d,j in zip(d_list,range(0,len(norm_list),d))]  
+            prob_list = [norm_list[j:j+d] for d,j in zip(d_list,range(0,len(norm_list)))]  
             
         else:
             prob_list = [(np.zeros(d)).tolist() for d in d_list]
@@ -577,7 +578,7 @@ class thermal_state(object):
                 s_list1.append(-p*np.log(p)) # converting to form of Shannon entropy
         
         # list of entropies at each site (within unit-cell)
-        s_list2 = [sum(s_list1[j:j+d]) for d,j in zip(d_list,range(0,len(s_list1),d))]
+        s_list2 = [sum(s_list1[j:j+d]) for d,j in zip(d_list,range(0,len(s_list1)))]
         s_avg = sum(s_list2)/l_uc # average entropy per unit-cell
         return s_avg
 
