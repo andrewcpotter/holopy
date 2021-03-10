@@ -71,8 +71,8 @@ class IsoMPS(IsoNetwork):
         else:
             self.name = ''
         
-        if 'thermal' in kwargs.keys():
-            self.thermal = kwargs['thermal']
+        if 'thermal' in kwargs.keys() and kwargs['thermal'] == True:
+            self.thermal = True
             if 'thermal_prob' in kwargs.keys(): # this should be a prob. list in shape of l*l_uc*n_phys
                 self.thermal_prob = kwargs['thermal_prob']
             else: raise ValueError('thermal state requires probability distribution')
