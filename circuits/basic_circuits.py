@@ -2,6 +2,8 @@
 Predefined (parameterized) qiskit circuits for holovqe
 
 Created: 2/14/2021, AC Potter
+
+Modified: 3/22/2021, YX Zhang
 """
 # standard imports
 import sys
@@ -75,6 +77,27 @@ def add_su4_circ(circ,q1,q2,params):
     circ.rx(params[12],q2)
     circ.rz(params[13],q2)
     circ.rx(params[14],q2)
+
+def add_u4_circ(circ,q1,q2,params):
+    circ.u3(params[0],params[1],params[2],q1)
+    circ.u3(params[3],params[4],params[5],q2)
+    circ.cx(q2,q1)
+    circ.rz(params[6],q1)
+    circ.ry(params[7],q2)
+    circ.rz(params[8],q2)
+    circ.cx(q1,q2)
+    circ.ry(params[9],q2)
+    circ.cx(q2,q1)
+    circ.u3(params[10],params[11],params[12],q1)
+    circ.u3(params[13],params[14],params[15],q2)
+    
+
+def add_xx_gate(circ,q1,q2,param):
+    [circ.h(q) for q in [q1,q2]]
+    circ.cx(q1,q2)
+    circ.rz(param,q2)
+    circ.cx(q1,q2)
+    [circ.h(q) for q in [q1,q2]]    
 
 def add_xx_circ(circ,q1,q2,params):
     """
