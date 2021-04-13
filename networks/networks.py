@@ -430,7 +430,7 @@ class IsoMPS(IsoNetwork):
                         # loop over all the qubit in a preg
                         for i in range(len(preg)):
                             # for each qubit extract pauli basis for a single qubit from the string
-                            base = bases[k * self.l_uc + j * len(preg) + i]
+                            base = bases[k * self.l_uc * len(preg) + j * len(preg) + i]
                             if base == 'x':
                                 qc.h(preg[i])
                             elif base == 'y':
