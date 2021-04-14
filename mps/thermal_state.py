@@ -5,6 +5,7 @@ import random
 from tenpy.networks.mps import MPS
 from tenpy.networks.mpo import MPO
 from tenpy.networks.site import SpinHalfSite
+import scipy.linalg as la
 
 class thermal_state(object):
     
@@ -44,8 +45,7 @@ class thermal_state(object):
           network_type: str
              One of "random_state", "circuit_MPS", "circuit_MPO", or "MPO" options.
           L: int
-             Length (number) of repetitions of unit cell in the main network chain
-             (could be set to number of sites, N, for MPO structures).  
+             Length (number) of repetitions of unit cell in the main network chain.
           chi_MPO: int
              Bond leg dimension for MPO-based structures. 
           params: numpy.ndarray
@@ -263,7 +263,7 @@ class thermal_state(object):
                 prob_list[j][0] += 1
         return prob_list
 
-    def density_matrix(self, params, L, T, bdry_vecs=[None,None]):      
+    def density_matrix(self, params, T, L, bdry_vecs=None):      
         """
         Returns thermal Density Matrix Product Operator (DMPO).
         --------------
@@ -282,7 +282,12 @@ class thermal_state(object):
              matrix.
           bdry_vecs: list
             List of left (first element) and right (second element) boundary vectors.
-            (set to [None,None] by default which gives left and right boundary vectors = |0>).
+          Note:
+            -If bdry_vecs is set to None, the infinite version of DMPO (iDMPO) would be returned.
+             In this case, the steady-state state of density matrix is computed based on DMPO 
+             transfer-matrix structure.
+            -If bdry_vecs is set to [None,None], the left and right boundary vectors = |0> 
+             would be returned. 
         """
         
         # tensor dimensions (consistent with rank-4 structure)
@@ -290,33 +295,61 @@ class thermal_state(object):
         d = self[0][:,0,0,0].size # physical leg dimension
         chi = self[0][0,:,0,0].size # bond leg dimension
         l_uc = len(self) # length of unit-cell
-        N = l_uc * L # number of sites
         
-        # constructing state and probability weights matrix chain 
-        state = thermal_state.network_from_cells(self,'circuit_MPO',L,None,
-                                                 params,bdry_vecs,None,T)
-        probs_list = L * thermal_state.prob_list(self,params,T)
-        p_matrix_chain = [np.diag(p) for p in probs_list]
+        # case of finite density matrix structure
+        # (the bdry vects are determined)
+        if bdry_vecs != None:
+            
+            N = l_uc * L # number of sites
+            # constructing state and probability weights matrix chain 
+            state = thermal_state.network_from_cells(self,'circuit_MPO',L,None,
+                                                     params,bdry_vecs,None,T)
+            probs_list = L * thermal_state.prob_list(self,params,T)
+            p_matrix_chain = [np.diag(p) for p in probs_list]
         
-        # contractions of density matrix: 
-        contractions = []
-        for j in range(N): # includes both summation convention and tensor product
-            # contracting the probability weights chain with state
-            # W1 = np.einsum('ij,jabc->iabc',p_matrix_chain[j],state[1][j]
-            W1 = np.tensordot(p_matrix_chain[j],state[1][j],axes=[1,0]) 
-            # W2 = np.einsum('abcd,cjkl->abdjkl',state[1][j].conj(),W1)
-            W2 = np.tensordot(state[1][j].conj(),W1,axes=[2,0]) 
-            # changing index ordering to: p_out, b_out, p_in, b_in
-            # W3 = np.einsum('abcdef->abdcef',np.einsum('abcdef->abedcf',W2))
-            W3 = np.swapaxes(np.swapaxes(W2,2,4),2,3)
-            contractions.append(np.reshape(W3,[d,chi**2,d,chi**2]))
-           
-        # boundary contractions
-        # state boundary contractions
-        bvecl = np.kron(state[0][0].conj(),state[0][0]) 
-        bvecr = np.kron(state[2][0].conj(),state[2][0])
+            # contractions of density matrix:
+            contractions = []
+            for j in range(N): 
+                W1 = np.einsum('abcd,ck->abdk',state[1][j],p_matrix_chain[j])
+                W2 = np.einsum('abdk,cjki->abdcji',W1,state[1][j].conj())
+                # reordering and reshaping indices
+                W3 = np.reshape(np.einsum('abdcji->abjcdi',W2),[d,chi**2,d,chi**2])
+                contractions.append(W3)
+                
+            # state boundary contractions
+            bvecl = np.kron(state[0][0].conj(),state[0][0]) 
+            bvecr = np.kron(state[2][0].conj(),state[2][0])
         
-        density_matrix = [[bvecl],contractions,[bvecr]]
+            density_matrix = [[bvecl],contractions,[bvecr]]
+            
+        # case of infinite density matrix product state    
+        else:       
+            N = l_uc * L # number of sites used for structure
+            # constructing state and probability weights matrix chain 
+            state = thermal_state.network_from_cells(self,'circuit_MPO',L,None,
+                                                     params,[None,None],None,T)
+            probs_list = L * thermal_state.prob_list(self,params,T)
+            p_matrix_chain = [np.diag(p) for p in probs_list]
+        
+            # contractions of density matrix:
+            contractions = []
+            for j in range(N): 
+                W1 = np.einsum('abcd,ck->abdk',state[1][j],p_matrix_chain[j])
+                W2 = np.einsum('abdk,cjki->abdcji',W1,state[1][j].conj())
+                # reordering and reshaping indices
+                W3 = np.einsum('abdcji->abjcdi',W2)
+                contractions.append(W3)
+                
+            # finding steady-state of transfer matrix of DMPO 
+            # transfer matrix:
+            transfer_mat = np.einsum('abad->bd',np.reshape(contractions[0],[d,chi**2,d,chi**2])) 
+            eig_vals,eig_vecs = la.eig(transfer_mat)
+            idx = np.where(np.abs(1-abs(eig_vals))<1e-5)[0][0] # index of steady-state
+            steady_den = np.reshape(eig_vecs[:,idx],[chi,chi]) # steady-state density matrix
+            steady_den = steady_den/np.trace(steady_den) # normalization of steady-state
+            #bcr = np.reshape(np.kron(state[2][0].conj(),state[2][0]),[chi,chi])
+    
+            density_matrix = [[steady_den],contractions,[d,chi]]
         
         return density_matrix
 
@@ -395,35 +428,85 @@ class thermal_state(object):
                     tensor6 = np.reshape(np.swapaxes(np.swapaxes(np.swapaxes(tensor5,0,3),0,1),2,3),
                                          [chi**2,chi**2]) 
                     contraction_list.append(tensor6)    
-
-        
+   
         # contracted network structure at each site for density matrix
         # must include MPO (e.g. Hamiltonian MPO)
         elif state_type == 'density_matrix':
             
-            N = len(self[1]) # number of sites (L * l_uc) in the main network chain (for density matrix).
-            N_MPO = len(MPO[1]) # number of sites for inserted MPO structure.
-            # tensor dimensions
-            d_s = self[1][0][:,0,0,0].size # state physical leg dimension
-            d_MPO = MPO[1][0][:,0,0,0].size # MPO physical leg dimension
-            chi_s = self[1][0][0,:,0,0].size # state bond leg dimension
-            chi_MPO = MPO[1][0][0,:,0,0].size # MPO bond leg dimension
-            chi_tot = chi_s * chi_MPO # total bond leg dimension
-            
-            contraction_list = []
-            for j in range(N): # includes both summation convention and tensor product
-                # MPO and density matrix constractions
-                # tensor1 = np.einsum('abcd,cijk->abdijk',self[1][j],MPO[1][j])
-                tensor1 = np.tensordot(self[1][j],MPO[1][j],axes=[2,0])
-                # changing index ordering to: p_out, b_out, p_in, b_in
-                # tensor2 = np.einsum('abcdef->abdcef',np.einsum('abcdef->abedcf',tensor1))
-                tensor2 = np.swapaxes(np.swapaxes(tensor1,2,4),2,3)
-                tensor3 = np.reshape(tensor2,[d_MPO,chi_tot,d_s,chi_tot])
-                # tracing over p_out and p_in
-                # tensor4 = np.einsum('abad->bd',tensor3)
-                tensor4 = np.trace(tensor3,axis1=0,axis2=2)
-                contraction_list.append(np.reshape(tensor4,[chi_tot,chi_tot]))
+            # checking whether DMPO is infinite         
+            if (len(self[2])) == 2:
                 
+            # infinite density matrix structures  
+                if len(MPO[1]) != len(self[1]):
+                    raise ValueError('Sites of MPO should match sites in iDMPO')        
+                
+                # tensor dimensions
+                d_s = self[2][0] # state physical leg dimension
+                d_MPO = MPO[1][0][:,0,0,0].size # MPO physical leg dimension
+                chi_s = self[2][1] # state bond leg dimension
+                chi_MPO = MPO[1][0][0,:,0,0].size # MPO bond leg dimension            
+                chi_tot = (chi_s)**2 * chi_MPO # total bond leg dimension
+                
+                # contraction with steady-state
+                s_left = np.reshape(np.einsum('abcdej,ej->abcd',self[1][0],self[0][0]),[d_s,chi_s**2,d_s])
+                #s_right = np.reshape(np.einsum('aeebcd,ee->abcd',self[1][-1],self[3][0]),[d_s,d_s,chi_s**2])
+                s_right = np.reshape(np.einsum('aeebcd->abcd',self[1][-1]),[d_s,d_s,chi_s**2])
+                # MPO boundary contractions
+                MPO_left = np.einsum('abcd,d->abc',MPO[1][0],MPO[0][0])
+                MPO_right = np.einsum('abcd,b->acd',MPO[1][-1],MPO[2][0]) 
+                # contractions of two-site MPO and state and reshaping         
+                left_tensor = np.einsum('bcde->dbec',np.einsum('abc,dea->bcde',s_left,MPO_left))
+                right_tensor = np.einsum('bcde->dbce',np.einsum('abc,dae->bcde',s_right,MPO_right))
+                tensor1 = np.reshape(np.einsum('jbkj->bk',left_tensor),[chi_tot])
+                tensor2 = np.reshape(np.einsum('aack->ck',right_tensor),[chi_tot]) 
+                tensor_list = []
+                
+                if len(self[1]) > 2:
+                    # (for l_uc > 1)
+                    for j in range(1,len(self[1])-1):      
+                        # MPO and density matrix contractions
+                        tensor3 = np.einsum('abcd,ijak->bcdijk',np.reshape(self[1][j],
+                                                        [d_s,chi_s**2,d_s,chi_s**2]),MPO[1][j])
+                        # index reordering
+                        tensor4 = np.einsum('bcdijk->ibjcdk',tensor3)
+                        tensor5 = np.reshape(tensor4,[d_MPO,chi_tot,d_s,chi_tot])
+                        # tracing over p_out and p_in
+                        tensor6 = np.trace(tensor5,axis1=0,axis2=2)
+                        tensor_list.append(np.reshape(tensor6,[chi_tot,chi_tot]))
+                else:
+                    # (for l_uc = 1)
+                    tensor_list.append(np.eye(chi_tot))
+                                         
+                contraction_list = [tensor1] + tensor_list + [tensor2]
+
+            # finite density matrix structures
+            else:
+                N = len(self[1]) # number of sites in main network chain.
+                N_MPO = len(MPO[1]) # number of sites for inserted MPO structure.
+                # tensor dimensions 
+                d = self[1][0][:,0,0,0].size # density matrix physical leg dimension
+                d_MPO = MPO[1][0][:,0,0,0].size # MPO physical leg dimension
+                chi = self[1][0][0,:,0,0].size # density matrix bond leg dimension
+                chi_MPO = MPO[1][0][0,:,0,0].size # MPO bond leg dimension
+                chi_tot = chi * chi_MPO # total bond leg dimension
+                tensor_list = []
+
+                for j in range(N): 
+                    # MPO and density matrix contractions
+                    tensor1 = np.einsum('abcd,ijak->bcdijk',self[1][j],MPO[1][j])
+                    #tensor1 = np.einsum('abcd,cijk->abdijk',self[1][j],MPO[1][j])
+                    # index reordering
+                    tensor2 = np.einsum('bcdijk->ibjcdk',tensor1)
+                    #tensor2 = np.einsum('abdijk->abijdk',tensor1)
+                    tensor3 = np.reshape(tensor2,[d,chi_tot,d_MPO,chi_tot])
+                    # tracing over p_out and p_in
+                    tensor4 = np.trace(tensor3,axis1=0,axis2=2)
+                    tensor_list.append(np.reshape(tensor4,[chi_tot,chi_tot]))
+                
+                # boundary vector contractions
+                bvecl = np.kron(self[0][0],MPO[0][0])
+                bvecr = np.kron(self[2][0],MPO[2][0]) 
+                contraction_list = [bvecl] + tensor_list + [bvecr]
         else:
             raise ValueError('only one of "random_state", "circuit_MPS", or "density_matrix" options')
             
@@ -432,7 +515,7 @@ class thermal_state(object):
     def expectation_value(self, state_type, chi_MPO=None, MPO=None, 
                           L=None, params=None, method=None, T=None):
         """
-        Returns the numerical result of full contractions of <MPS|MPS>,
+         Returns the numerical result of full contractions of <MPS|MPS>,
          <MPS|MPO|MPS>, or <MPO|DMPO> networks.
          MPS: holographic-matrix-product-state-based structures.
          MPO: matrix product operator.
@@ -517,22 +600,28 @@ class thermal_state(object):
         # for density-matrix-based structures:
         # must include MPO (e.g. Hamiltonian MPO)
         elif state_type == 'density_matrix': 
-            
+   
             # first method of contracting density matrix structures
-            if method == 'method_I':  
-                
+            if method == 'method_I':
+                chi_MPO = MPO[1][0][0,:,0,0].size # MPO bond leg dimension
                 # list of contracted matrices
                 con_mat = thermal_state.network_site_contraction(self,state_type,chi_MPO,MPO) 
-                # accumulation of contracted matrices defined at each site
-                con_mat0 = con_mat[0]
-                for j in range(1,len(con_mat)):
-                    con_mat0 = con_mat[j] @ con_mat0
+                con_mat0 = con_mat[1]
+                # boundary vectors
+                bvecl = con_mat[0]
+                bvecr = con_mat[-1]
                 
-                # boundary vector contractions
-                bvecl = np.kron(self[0][0],MPO[0][0])
-                bvecr = np.kron(self[2][0],MPO[2][0])
-                expect_val = bvecr.conj().T @ con_mat0 @ bvecl
-            
+                if len(self[2]) > 2: # for infinite DMPO structure
+                    #accumulation of contracted matrices defined at each site
+                    for j in range(1,len(con_mat)-1):
+                        con_mat0 = con_mat[j] @ con_mat0            
+                    expect_val = bvecr.T @ con_mat0 @ bvecl   
+                    #expect_val =  np.einsum('abc,abc',bvecr,bvecl)                          
+                else: # for finite DMPO structure
+                    for j in range(2,len(con_mat)-1):
+                        con_mat0 = con_mat[j] @ con_mat0
+                    expect_val = bvecr.conj().T @ con_mat0 @ bvecl                                
+               
             # second method of contracting density matrix structures
             elif method == 'method_II':  
                 
@@ -582,7 +671,7 @@ class thermal_state(object):
         s_avg = sum(s_list2)/l_uc # average entropy per unit-cell
         return s_avg
 
-    def free_energy(self, params, state_type, L, Hamiltonian, T, 
+    def free_energy(self, params, state_type, L, Hamiltonian, T,
                     chi_H=None, bdry_vecs1=None, bdry_vecs2=None, 
                     method=None, N_sample=None):
         """
@@ -593,10 +682,10 @@ class thermal_state(object):
         --the input assumes the list of unitary tensors at each unit-cell--
         state_type: str
            One of "density_matrix" or "random_state"  options.
-        L: int
-           Length (number) of repetitions of unit cell in the main network chain.
         params: numpy.ndarray
            Optimized parameters for unitary structure and probability weights.
+        L: int
+           Length (number) of repetitions of unit cell in the main network chain.
         Hamiltonian: numpy.ndarray 
            The Hamiltonian MPO of model.  
         T: float
@@ -605,34 +694,35 @@ class thermal_state(object):
            Bond leg dimension for Hamiltonian MPO structure.
         bdry_vecs1 and bdry_vecs2: list
            List of left (first element) and right (second element) boundary vectors for 
-           state and Hamiltonian networks, respectively (set to [None,None] by default).
+           state and Hamiltonian networks, respectively (set to [None,None] by default
+           for finite structures and None for infinte structures).
         method: str
            For densit matrix: one of "method_I" or "method_II" options.
            For random-holoMPS: one of 'thermal_state_class', 'tenpy', or 'MPO_tenpy' options.
            ("MPO_tenpy" is set when MPO structure is already constructed in TenPy).
-       N_sample: int
+        N_sample: int
            Number of samples for averaging energy of thermal random holoMPS (only for 
            "random_state" option.    
         """   
         
         l_uc = len(self) # length of unit-cell
         N = l_uc * L # total number of sites
-
         # for density-matrix-based structures:
         if state_type == 'density_matrix':
             
             S = thermal_state.entropy(thermal_state.prob_list(self,params,T)) # entropy
              
-            if method == 'method_I': # first method of computing density matrix structures free energy               
-                density_mat = thermal_state.density_matrix(self,params,L,T,bdry_vecs1) # density matrix 
+            if method == 'method_I': # first method of computing density matrix structures free energy
+                
+                density_mat = thermal_state.density_matrix(self,params,T,L,bdry_vecs1) # density matrix 
                 MPO_Hamiltonian = thermal_state.network_from_cells(Hamiltonian,'MPO',N,
                                                                    chi_H,None,bdry_vecs2,
                                                                    'thermal_state_class',T) # Hamiltonian MPO
                 E = thermal_state.expectation_value(density_mat,'density_matrix',
                                                     chi_H,MPO_Hamiltonian,L,
-                                                    params,'method_I',T) # energy of system              
-                F = (E/N) - T*S # Helmholtz free energy 
-            
+                                                    params,'method_I',T) # energy of system 
+                
+                F = (E/(N-l_uc)) - T*S # Helmholtz free energy 
             elif method == 'method_II':
                 
                 MPO_Hamiltonian = thermal_state.network_from_cells(Hamiltonian,'MPO',N,
@@ -640,8 +730,8 @@ class thermal_state(object):
                                                                    'thermal_state_class',T) # Hamiltonian MPO
                 E = thermal_state.expectation_value(self,'density_matrix',chi_H,
                                                     MPO_Hamiltonian,L,params,'method_II',T) # energy of system            
-                F = (E/(N-1)) - T*S # Helmholtz free energy 
-            
+                F = (E/(N-l_uc)) - T*S # Helmholtz free energy 
+                
             else:
                 ValueError('only one of "method_I" or "method_II" options')
             
