@@ -170,6 +170,41 @@ def add_xyz_circ(circ,q1,q2,params):
     circ.rz(params[2],q2)
     circ.cx(q1,q2)
     
+def add_ising_circ(circ,q1,q2,params,include_end_rx2=False):
+    """
+    inputs:
+        - q1,2 qubits
+        - params, qiskit ParameterVector object or list of qk Parameters
+    returns: 
+        - QKParamCircuit object
+    """
+    # 1q gates
+    circ.rx(params[0],q1) # physical qubit
+    circ.rx(params[1],q2) # bond qubit
+    
+    # cartan block 
+    # xx-rotation
+    [circ.h(q) for q in [q1,q2]]
+    circ.cx(q1,q2)
+    circ.rz(params[2],q2)
+    circ.cx(q1,q2)
+    [circ.h(q) for q in [q1,q2]]
+    # yy-rotation
+    [circ.rx(np.pi/2,q) for q in [q1,q2]]
+    circ.cx(q1,q2)
+    circ.rz(params[3],q2)
+    circ.cx(q1,q2)
+    [circ.rx(-np.pi/2,q) for q in [q1,q2]]
+    # zz-rotation
+    circ.cx(q1,q2)
+    circ.rz(params[4],q2)
+    circ.cx(q1,q2)
+    
+    # 1q gates
+    circ.rx(params[5],q1) # physical qubit
+    if include_end_rx2: circ.rx(params[1],q2) # bond qubit
+    
+    
     
 
 #%% Multi-qubit circuits
