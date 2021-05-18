@@ -327,7 +327,7 @@ class thermal_state(object):
         
         # contractions of density matrix:
         contractions = [] 
-        for j in range(N): 
+        for j in range(N):
             W1 = np.einsum('abcd,c,eick->abdeik',state[1][j],probs_list[j],state[1][j].conj())
             #W1 = np.einsum('abcd,ck->abdk',state[1][j],p_matrix_chain[j])
             # reordering and reshaping indices
@@ -335,7 +335,7 @@ class thermal_state(object):
             #W2 = np.einsum('abdk,cjki->abdcji',W1,state[1][j].conj())
             #W3 = np.einsum('abdcji->abjcdi',W2)
             contractions.append(W2)
-        
+
         if bdry_vecs != None:
             # left boundary contraction
             bvecl = np.eye(chi)
@@ -343,8 +343,19 @@ class thermal_state(object):
             method = 'MPDO' # structure label
         else:
             # finding steady-state of transfer matrix of DMPO 
-            # transfer matrix structure
-            transfer_mat = np.einsum('abad->bd',np.reshape(contractions[0],[d,chi**2,d,chi**2])) 
+            # finding tranfer matrix:
+            if l_uc == 1: # if only one unitary within each unit-cell
+                transfer_mat = np.einsum('abad->bd',np.reshape(contractions[0],[d,chi**2,d,chi**2]))
+            else: # for l_uc > 1
+                W_list = [np.reshape(contractions[j],[d,chi**2,d,chi**2]) for j in range(l_uc)]
+                W_list1 = [W_list[0]]
+                for j in range(1,len(W_list)):
+                    tensor = np.reshape(np.einsum('acdijk->aijckd',
+                             np.einsum('abcd,ijkb->acdijk',W_list1[0],W_list[j])),
+                             [d**2,chi**2,d**2,chi**2])
+                    W_list1 = []
+                    W_list1.append(tensor)
+                transfer_mat = np.einsum('abad->bd',W_list1[0]) 
             eig_vals,eig_vecs = la.eig(transfer_mat)
             idx = np.where(np.abs(1-abs(eig_vals))<1e-5)[0][0] # index of steady-state
             steady_den = np.reshape(eig_vecs[:,idx],[chi,chi]) # steady-state density matrix
@@ -598,18 +609,18 @@ class thermal_state(object):
                 
                 # checking structure label
                 if self[3] == "MPDO": # finite structures
-                    M = np.linalg.matrix_power(con_mat0,len(con_mat)-2)
-                    #for j in range(2,len(con_mat)-1):
-                     #   con_mat0 = con_mat[j] @ con_mat0
-                    expect_val = (bvecr.T @ M @ bvecl)/chi
+                    #M = np.linalg.matrix_power(con_mat0,len(con_mat)-2)
+                    for j in range(2,len(con_mat)-1):
+                        con_mat0 = con_mat[j] @ con_mat0
+                    expect_val = (bvecr.T @ con_mat0 @ bvecl)/chi
                 elif self[3] == "iMPDO": # infinite structures
                     if len(con_mat) == 2:
                         expect_val = bvecr.T @ bvecl
                     else: # case of l_uc > 1
-                        M = np.linalg.matrix_power(con_mat0,len(con_mat)-2)
-                        #for j in range(2,len(con_mat)-1):
-                         #   con_mat0 = con_mat[j] @ con_mat0
-                        expect_val = bvecr.T @ M @ bvecl
+                        #M = np.linalg.matrix_power(con_mat0,len(con_mat)-2)
+                        for j in range(2,len(con_mat)-1):
+                            con_mat0 = con_mat[j] @ con_mat0
+                        expect_val = bvecr.T @ con_mat0 @ bvecl
                 else:
                     raise ValueError('structure label must be "MPDO" or "iMPDO"')
                
