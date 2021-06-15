@@ -342,6 +342,7 @@ class thermal_state(object):
             bvecl = np.eye(chi)
             bvecr = np.eye(chi) 
             method = 'MPDO' # structure label
+            new_contractions =  contractions
         else:
             # finding steady-state of transfer matrix of iMPDO 
             # finding tranfer matrix:
